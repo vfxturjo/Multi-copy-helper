@@ -8,8 +8,8 @@ app.once("ready", main);
 
 async function main() {
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 700,
+    width: 810,
+    height: 830,
     resizable: false,
     show: false,
     webPreferences: {
@@ -36,7 +36,7 @@ async function main() {
   }
 
   mainWindow.once("ready-to-show", mainWindow.show);
-  mainWindow.webContents.openDevTools();
+  // mainWindow.webContents.openDevTools();
 }
 
 ipcMain.handle("get-version", (_, key: "electron" | "node") => {
@@ -46,7 +46,7 @@ ipcMain.handle("get-version", (_, key: "electron" | "node") => {
 // Conditionally ignore mouse events outside the window
 ipcMain.on("set-ignore-mouse-events", (event, ignore, options) => {
   // BYPASSING FOR NOW
-  return;
+  // return;
   mainWindow.setIgnoreMouseEvents(ignore, options);
 });
 

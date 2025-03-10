@@ -53,6 +53,7 @@
   },
   "dependencies": {
     "clipboard-event": "^1.6.0",
-    "electron-reload": "^2.0.0-alpha.1"
+    "electron-reload": "^2.0.0-alpha.1",
+    "superjson": "^2.2.2"
   }
 }

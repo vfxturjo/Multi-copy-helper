@@ -3,27 +3,34 @@ export function applyFadeOutTransition(
   options?: {
     fadeOutTime?: number;
     timeoutTime?: number;
-    stylingClass?: string;
-    removeClass?: string[] | null;
+    stylingClass?: string[] | string;
+    removeClass?: string[] | string | null;
+    startDelay?: number;
   },
 ) {
-  const {
-    fadeOutTime = 1000,
-    timeoutTime = 100,
-    stylingClass = "bg-red-500",
-    removeClass = null,
-  } = options || {};
+  const { fadeOutTime = 1000, timeoutTime = 100 } = options || {};
+  let { stylingClass = "bg-red-500", removeClass = null } = options || {};
 
-  console.log(
-    "fadeTime",
-    fadeOutTime,
-    "timeoutTime",
-    timeoutTime,
-    "stylingClass",
-    stylingClass,
-    "removeClass",
-    removeClass,
-  );
+  // if stylingClass or removeClass is a string, convert it to an array
+  if (typeof stylingClass === "string") {
+    stylingClass = [stylingClass];
+  }
+  if (typeof removeClass === "string") {
+    removeClass = [removeClass];
+  }
+
+  // if delay is added, do everything with a timeout
+  if (options?.startDelay) {
+    setTimeout(() => {
+      applyFadeOutTransition(element, {
+        fadeOutTime,
+        timeoutTime,
+        stylingClass,
+        removeClass,
+      });
+    }, options.startDelay);
+    return;
+  }
 
   // Remove any conflicting classes if specified
   if (removeClass) {
@@ -38,15 +45,14 @@ export function applyFadeOutTransition(
     ),
   );
 
-  // Add styling class and duration-0 for instant application of style
-  element.classList.add(stylingClass, "duration-0");
+  element.classList.add(...stylingClass, "duration-0");
   element.style.transitionDuration = "0ms"; // Set transition duration
 
   // Set timeout to trigger fade-out effect and revert classes
   setTimeout(() => {
     element.classList.remove("duration-0");
     element.style.transitionDuration = fadeOutTime + "ms"; // Set transition duration
-    element.classList.remove(stylingClass);
+    element.classList.remove(...stylingClass);
 
     // Re-add the removed conflicting classes
     if (removeClass) {

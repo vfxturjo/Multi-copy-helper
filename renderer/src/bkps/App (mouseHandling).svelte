@@ -1,6 +1,6 @@
 <script lang="ts">
-  import ipc, { ipcr } from "./ipc";
-  import ClipboardIcon from "./assets/MainLogo.svelte";
+  import ipc, { ipcr } from "../ipc";
+  import ClipboardIcon from "../assets/MainLogo.svelte";
 
   //
   // handling mouse events outside the window
