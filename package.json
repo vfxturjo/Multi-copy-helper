@@ -44,6 +44,7 @@
   },
   "homepage": "https://github.com/tlaceby/electron-svelte#readme",
   "devDependencies": {
+    "@tailwindcss/typography": "^0.5.16",
     "concurrently": "^8.2.2",
     "electron": "^28.2.3",
     "electron-builder": "^24.9.1",
@@ -51,6 +52,7 @@
     "prettier-plugin-svelte": "^3.2.1"
   },
   "dependencies": {
+    "clipboard-event": "^1.6.0",
     "electron-reload": "^2.0.0-alpha.1"
   }
 }
