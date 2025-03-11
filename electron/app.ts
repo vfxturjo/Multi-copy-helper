@@ -2,6 +2,13 @@ import { app, BrowserWindow, globalShortcut, ipcMain, IpcMainEvent } from "elect
 import electronReload from "electron-reload";
 import { join } from "path";
 
+// MAKE IT PORTABLE
+import path from "path";
+if (process.env.PORTABLE_EXECUTABLE_DIR)
+  app.setPath("userData", path.join(process.env.PORTABLE_EXECUTABLE_DIR, "data"));
+
+// MAIN CODE
+
 let mainWindow: BrowserWindow;
 
 app.once("ready", main);

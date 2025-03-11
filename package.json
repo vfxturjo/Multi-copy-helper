@@ -1,7 +1,7 @@
 {
-  "name": "electron-svelte",
+  "name": "smart-copy",
   "version": "0.0.1",
-  "description": "A simple electron/svelte/electron-builder template for building cross platform apps.",
+  "description": "A software that allows you to copy text row-wise and paste to spreadsheet tables",
   "main": "dist/electron/app.js",
   "scripts": {
     "dev": "concurrently --kill-others \"npm run dev:renderer\" \"npm run dev:electron\" \"cd electron && tsc -w\"",
@@ -18,7 +18,10 @@
     "directories": {
       "output": "build"
     },
-    "files": ["dist/**/*", "package.json"],
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
     "win": {
       "target": "nsis",
       "icon": "path/to/your/icon/icon.ico"
@@ -36,13 +39,16 @@
     "type": "git",
     "url": "git+https://github.com/tlaceby/electron-svelte.git"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "electron",
+    "svelte",
+    "copy",
+    "clipboard",
+    "tables"
+  ],
+  "author": "vfxTurjo",
   "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/tlaceby/electron-svelte/issues"
-  },
-  "homepage": "https://github.com/tlaceby/electron-svelte#readme",
+  "homepage": "https://github.com/vfxturjo/Multi-copy-helper",
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.16",
     "concurrently": "^8.2.2",
