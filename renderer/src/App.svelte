@@ -72,13 +72,15 @@
 
     if (st.currentCopyingID !== null && st.currentCopyingVar !== null) {
       if (st.currentCopyingVar === "###ID###") {
-        st.currentCopyingID = value.trim();
-      } else {
-        if (st.copiedData[st.currentCopyingID] === undefined) {
-          st.copiedData[st.currentCopyingID] = {};
-        }
-        st.copiedData[st.currentCopyingID][st.currentCopyingVar] = value.trim();
+        // st.currentCopyingID = value.trim();
+        st.currentCopyingID = "AAAAA";
+        st.copiedData[st.currentCopyingID] = {};
       }
+
+      if (st.copiedData[st.currentCopyingID] === undefined) {
+        st.copiedData[st.currentCopyingID] = {};
+      }
+      st.copiedData[st.currentCopyingID][st.currentCopyingVar] = value.trim();
 
       // do animation
       const element = document
