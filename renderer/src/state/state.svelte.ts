@@ -6,6 +6,7 @@ interface oneRow {
 
 export const state: {
   currentIDKeyName: string;
+  IDKeyPositionInData: number;
   currentCopyingID: string;
   currentCopyingVar: string | null;
   itemsToCopy: string[];
@@ -22,6 +23,7 @@ export const state: {
   itemsToCopy: [],
 
   currentIDKeyName: "ID",
+  IDKeyPositionInData: 0,
   currentCopyingID: "Texas A&M",
   currentCopyingVar: null,
 
@@ -33,7 +35,7 @@ export const state: {
   showMainWindowLock: true,
   currentPreviewView: "DataPreview",
 
-  currentPreset: "New",
+  currentPreset: "Default",
   thingsToCopyLinesOk: true,
   numKeysNavigationState: false,
 });
@@ -52,37 +54,39 @@ export interface PresetObject {
   currentIDKeyName: string;
   currentID: string;
   itemsToCopy: string[];
+  IDKeyPositionInData: number;
 }
 
 export const settings: {
   thingsToCopyRaw: string;
-  currentPreset: string;
   UIScale: number;
-  UIShortenPx: number;
   autoStartNextItem: boolean;
-  CapsLockNavigation: boolean;
 } = $state({
   thingsToCopyRaw: "",
-  currentPreset: "default",
   UIScale: 1.1,
-  UIShortenPx: 0,
   autoStartNextItem: false,
-  CapsLockNavigation: false,
 });
 
 const defaultSavedData: {
   presets: PresetObject[];
   currentPreset: string;
+  defaultPresetOnLoad: string;
+  UIShortenPx: number;
+  capsLockNavigation: boolean;
 } = {
   presets: [
     {
       name: "Default",
       currentIDKeyName: "ID",
-      currentID: "ID NAME",
+      currentID: "",
       itemsToCopy: ["Col1", "Col2", "Col3"],
+      IDKeyPositionInData: 0,
     },
   ],
   currentPreset: "Default",
+  defaultPresetOnLoad: "Default",
+  UIShortenPx: 0,
+  capsLockNavigation: true,
 };
 
 export const SavedData = new PersistedStateObjectAdvanced("settings", defaultSavedData, {
@@ -96,8 +100,8 @@ export const settingsMethods = {
       currentIDKeyName: state.currentIDKeyName,
       currentID: state.currentCopyingID,
       itemsToCopy: state.itemsToCopy,
+      IDKeyPositionInData: state.IDKeyPositionInData,
     });
-    settings.currentPreset = state.currentPreset;
   },
 
   updatePreset: () => {
@@ -108,6 +112,7 @@ export const settingsMethods = {
         currentIDKeyName: state.currentIDKeyName,
         currentID: state.currentCopyingID,
         itemsToCopy: state.itemsToCopy,
+        IDKeyPositionInData: state.IDKeyPositionInData,
       };
     }
   },
@@ -116,9 +121,8 @@ export const settingsMethods = {
     state.currentIDKeyName = preset.currentIDKeyName;
     state.currentCopyingID = preset.currentID;
     state.itemsToCopy = preset.itemsToCopy;
+    state.IDKeyPositionInData = preset.IDKeyPositionInData;
     settings.thingsToCopyRaw = preset.itemsToCopy.join("\n");
-
-    settings.currentPreset = preset.name;
   },
 
   deletePreset: (preset: PresetObject) => {
@@ -131,5 +135,13 @@ export const settingsMethods = {
   resetSettings: () => {
     localStorage.clear();
     SavedData.v = defaultSavedData;
+  },
+
+  resetPresets: () => {
+    SavedData.v.presets = defaultSavedData.presets;
+  },
+
+  resetCollectedData: () => {
+    state.copiedData = {};
   },
 };

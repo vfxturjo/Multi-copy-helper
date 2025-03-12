@@ -14,17 +14,16 @@
   /* font-weight: 400; */
 
   color-scheme: light dark;
-  /* background-color: rgba(0, 0, 0, 0.3); */
+  /* background-color: var(--rootBG); */
 
   /* color: rgba(255, 255, 255, 0.87); */
-
-  /* background-color: #242424; */
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   --UISCALE: 1.1;
+  --rootBG: rgba(0, 0, 0, 0);
 }
 
 /* Reference Button for scaling the UI 
@@ -56,6 +55,7 @@ body {
   overflow: hidden;
   scale: var(--UISCALE);
   transform-origin: 100% 100%;
+  /* background-color: var(--rootBG); */
 }
 
 #main-window {

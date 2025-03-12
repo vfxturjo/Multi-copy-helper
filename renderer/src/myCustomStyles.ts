@@ -36,6 +36,8 @@ export function applyFadeOutTransition(
   if (removeClass) {
     element.classList.remove(...removeClass);
   }
+  // get initial transition duration
+  const transitionDurationOrig = getComputedStyle(element).getPropertyValue("transition-duration");
 
   // Remove duration class to ensure instant color change
   // any class starting with "duration-" will be removed
@@ -59,4 +61,9 @@ export function applyFadeOutTransition(
       element.classList.add(...removeClass);
     }
   }, timeoutTime);
+
+  // Set transition duration back to original value
+  setTimeout(() => {
+    element.style.transitionDuration = transitionDurationOrig;
+  }, fadeOutTime + timeoutTime);
 }

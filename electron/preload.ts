@@ -8,6 +8,10 @@ export const CONTEXT_BRIDGE = {
     return await ipcRenderer.invoke(`get-version`, opt);
   },
 
+  openAppDataFolder: () => {
+    ipcRenderer.send("open-app-data-folder");
+  },
+
   // conditionally ignore mouse events
   setIgnoreMouseEvents: (ignore, options?) => {
     ipcRenderer.send("set-ignore-mouse-events", ignore, options);

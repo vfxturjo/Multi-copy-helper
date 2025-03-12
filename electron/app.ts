@@ -1,13 +1,13 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, IpcMainEvent } from "electron";
+import { app, BrowserWindow, globalShortcut, ipcMain, IpcMainEvent, shell } from "electron";
 import electronReload from "electron-reload";
 import { join } from "path";
 
-// MAKE IT PORTABLE
-import path from "path";
-if (process.env.PORTABLE_EXECUTABLE_DIR)
-  app.setPath("userData", path.join(process.env.PORTABLE_EXECUTABLE_DIR, "data"));
+// // MAKE IT PORTABLE
+// import path from "path";
+// if (process.env.PORTABLE_EXECUTABLE_DIR)
+//   app.setPath("userData", path.join(process.env.PORTABLE_EXECUTABLE_DIR, "data"));
 
-// MAIN CODE
+// // MAIN CODE
 
 let mainWindow: BrowserWindow;
 
@@ -27,6 +27,7 @@ async function main() {
 
     frame: false,
     transparent: true,
+    title: "SmartCopy",
   });
 
   if (app.isPackaged) {
@@ -43,6 +44,7 @@ async function main() {
   }
 
   mainWindow.once("ready-to-show", mainWindow.show);
+  mainWindow.setTitle("SmartCopy");
   // mainWindow.webContents.openDevTools();
 }
 
@@ -52,8 +54,6 @@ ipcMain.handle("get-version", (_, key: "electron" | "node") => {
 
 // Conditionally ignore mouse events outside the window
 ipcMain.on("set-ignore-mouse-events", (event, ignore, options) => {
-  // BYPASSING FOR NOW
-  // return;
   mainWindow.setIgnoreMouseEvents(ignore, options);
 });
 
@@ -189,4 +189,9 @@ ipcMain.handle("get-clipboard", () => {
 // handle always on top toggle
 ipcMain.on("ToggleAlwaysOnTop", () => {
   mainWindow.setAlwaysOnTop(!mainWindow.isAlwaysOnTop());
+});
+
+// open-app-data-folder
+ipcMain.on("open-app-data-folder", () => {
+  shell.openPath(app.getPath("userData"));
 });

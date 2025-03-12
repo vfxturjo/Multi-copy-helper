@@ -4,7 +4,13 @@
   import DragLogo from "./assets/DragLogo.svelte";
 
   import { itemsToCopyDefault } from "./itemsToCopy";
-  import { SavedData, settings, settingsMethods, state as st } from "./state/state.svelte";
+  import {
+    SavedData,
+    settings,
+    settingsMethods,
+    state as st,
+    type PresetObject,
+  } from "./state/state.svelte";
   import { applyFadeOutTransition } from "./myCustomStyles";
   import { onMount } from "svelte";
   import KeyboardLogo from "./assets/keyboardLogo.svelte";
@@ -72,26 +78,32 @@
 
     if (st.currentCopyingID !== null && st.currentCopyingVar !== null) {
       if (st.currentCopyingVar === "###ID###") {
-        // st.currentCopyingID = value.trim();
-        st.currentCopyingID = "AAAAA";
-        st.copiedData[st.currentCopyingID] = {};
+        st.currentCopyingID = value.trim();
       }
 
       if (st.copiedData[st.currentCopyingID] === undefined) {
         st.copiedData[st.currentCopyingID] = {};
       }
-      st.copiedData[st.currentCopyingID][st.currentCopyingVar] = value.trim();
+
+      if (st.currentCopyingVar !== "###ID###") {
+        st.copiedData[st.currentCopyingID][st.currentCopyingVar] = value.trim();
+      }
 
       // do animation
-      const element = document
-        .querySelectorAll("#itemsToCopy-" + st.currentCopyingVar)
-        .forEach((e) => {
-          applyFadeOutTransition(e as HTMLButtonElement, {
-            stylingClass: "btn-success",
-            startDelay: 1,
-            removeClass: ["btn-success", "btn-soft", "opacity-60"],
-          });
+      let element: NodeListOf<Element>;
+      if (st.currentCopyingVar !== "###ID###") {
+        element = document.querySelectorAll("#itemsToCopy-" + st.currentCopyingVar);
+      } else {
+        element = document.querySelectorAll("#itemsToCopy-IDIDIDIDID___");
+      }
+
+      element.forEach((e) => {
+        applyFadeOutTransition(e as HTMLButtonElement, {
+          stylingClass: "btn-success",
+          startDelay: 1,
+          removeClass: ["btn-success", "btn-soft", "opacity-60"],
         });
+      });
 
       // reset currently selecting thing
       if (!settings.autoStartNextItem) {
@@ -122,26 +134,41 @@
   function clearState() {
     st.copiedData = {};
     st.currentCopyingID = "";
-    st.currentClipboard = "";
     st.currentCopyingVar = null;
-    st.itemsToCopy = itemsToCopyDefault;
+
+    settingsMethods.loadPreset(
+      SavedData.v.presets.find((p) => p.name === st.currentPreset) as PresetObject,
+    );
   }
 
   function copyFormattedData() {
     const defaultDelimiter = "\t";
     let formattedData = "";
 
-    // for each item in state.copiedData do this and then join with new line
+    let copiedDataObj = Object.assign({}, st.copiedData);
+    let copiedDataArray = [];
 
-    for (const [key, value] of Object.entries(st.copiedData)) {
-      for (const [key2, value2] of Object.entries(value)) {
-        formattedData += `${value2}${defaultDelimiter}`;
+    for (const [key, value] of Object.entries(copiedDataObj)) {
+      // create arrays of arrays from the entries
+      // add also the main key or ID into the formatted data, specified by st.IDKeyPositionInData
+      let row = Object.values(value);
+
+      // Insert ID at specified position
+      if (st.IDKeyPositionInData >= 0) {
+        if (st.IDKeyPositionInData === 0) {
+          row.unshift(key);
+        } else if (st.IDKeyPositionInData <= row.length) {
+          row.splice(st.IDKeyPositionInData, 0, key);
+        } else {
+          row.push(key);
+        }
       }
-      formattedData = formattedData.slice(0, -1);
-      formattedData += "\n";
-    }
-    formattedData = formattedData.slice(0, -1);
 
+      copiedDataArray.push(row);
+    }
+
+    // join each row array with delimiter and then join all rows with newline
+    formattedData = copiedDataArray.map((row) => row.join(defaultDelimiter)).join("\n");
     navigator.clipboard.writeText(formattedData);
   }
 
@@ -150,17 +177,26 @@
   let draggableTimerHandleLogoEnter: NodeJS.Timeout;
 
   onMount(() => {
-    settingsMethods.loadPreset(SavedData.v.presets[0]);
+    const foundPreset = SavedData.v.presets.find((p) => p.name === SavedData.v.defaultPresetOnLoad);
+    if (foundPreset) {
+      st.currentPreset = foundPreset.name;
+      settingsMethods.loadPreset(foundPreset);
+    } else {
+      settingsMethods.loadPreset(SavedData.v.presets[0]);
+    }
 
-    // if (settings.CapsLockNavigation) {
-    //   SetNumKeysNavigation(state.itemsToCopy);
-    // }
+    // enable numkeys navigations if enabled
+    if (SavedData.v.capsLockNavigation) {
+      console.log("enabling caps lock navigation");
+      SetNumKeysNavigation(st.itemsToCopy);
+    } else {
+      disableCapsLockNavigation();
+    }
   });
 
   $effect(() => {
-    if (settings.CapsLockNavigation) {
+    if (SavedData.v.capsLockNavigation) {
       console.log("enabling caps lock navigation");
-
       SetNumKeysNavigation(st.itemsToCopy);
     } else {
       disableCapsLockNavigation();
@@ -196,7 +232,8 @@
       ) {
         // double click happened
         console.log("dblClick");
-        setClipboardValueToData(key);
+        // setClipboardValueToData(key);
+        getCurrentClipboardAndSave(key);
       }
     }
 
@@ -222,7 +259,7 @@
 
 <div
   id="main-window"
-  style="max-width: calc(calc(100vw / var(--UISCALE)) - {settings.UIShortenPx}px);"
+  style="max-width: calc(calc(100vw / var(--UISCALE)) - {SavedData.v.UIShortenPx}px);"
   class="INTERACTIVE absolute bottom-0 right-0 overflow-hidden flex flex-col-reverse flex-wrap-reverse items-start"
 >
   <!-- Bottom part -->
@@ -274,11 +311,11 @@
 
       <!-- global keyboard shortcuts indicator -->
       {#if st.numKeysNavigationState}
-        <button
-          class="absolute fill-yellow-300 bottom-0 right-0 w-4 h-4 flex justify-center items-center -translate-x-19 -translate-y-1"
+        <div
+          class="absolute select-none fill-yellow-300 bottom-0 right-0 w-4 h-4 flex justify-center items-center -translate-x-19 -translate-y-1"
         >
           <KeyboardLogo width={16} height={16} />
-        </button>
+        </div>
       {/if}
     </div>
 
@@ -287,17 +324,26 @@
       <div class="text-right w-full px-3">
         <span class="text-sm opacity-50">{st.currentIDKeyName}:</span>
         <button
+          id="itemsToCopy-IDIDIDIDID___"
           class="btn btn-neutral btn-sm {st.currentCopyingVar === '###ID###'
             ? 'btn-primary'
-            : 'btn-neutral'}"
+            : 'btn-neutral'} {st.currentCopyingID == '' ? 'bg-red-800' : ''}
+            {Object.keys(st.copiedData[st.currentCopyingID] || {}).length === st.itemsToCopy.length
+            ? 'btn-warning animate-pulse'
+            : ''}"
           onclick={() => {
             startWaitingForClipboard("###ID###");
           }}
           ondblclick={() => {
             getCurrentClipboardAndSave("###ID###");
           }}
+          oncontextmenu={(e) => {
+            e.preventDefault();
+            st.currentCopyingVar = "";
+            unregisterGlobalShortcutForListeningToCancel();
+          }}
         >
-          {st.currentCopyingID == "" ? "Set ID" : st.currentCopyingID}
+          {st.currentCopyingID == "" ? "...Set ID First..." : st.currentCopyingID}
         </button>
       </div>
       <div
@@ -317,6 +363,11 @@
             }}
             ondblclick={() => {
               getCurrentClipboardAndSave(item);
+            }}
+            oncontextmenu={(e) => {
+              e.preventDefault();
+              st.currentCopyingVar = "";
+              unregisterGlobalShortcutForListeningToCancel();
             }}
           >
             {item}
@@ -349,15 +400,6 @@
         </button>
 
         <button
-          class="btn btn-sm"
-          onclick={() => {
-            ipc.openDevTools();
-          }}
-        >
-          DevTools
-        </button>
-
-        <button
           class="btn btn-sm {st.currentPreviewView === 'settings' ? 'btn-success' : ''}"
           onclick={() => {
             st.currentPreviewView =
@@ -375,15 +417,27 @@
         >
           Presets
         </button>
-        <button
-          class="btn btn-sm"
-          onclick={(e) => {
-            clearState();
-            applyFadeOutTransition(e.target as HTMLButtonElement);
+
+        <!-- list of copied IDs -->
+        <select
+          class="select"
+          bind:value={st.currentCopyingID}
+          onwheel={(e) => {
+            const keys = Object.keys(st.copiedData);
+            const currentIndex = keys.findIndex((id) => id === st.currentCopyingID);
+            const len = keys.length;
+
+            if (e.deltaY > 0) {
+              st.currentCopyingID = keys[currentIndex > 0 ? currentIndex - 1 : len - 1];
+            } else {
+              st.currentCopyingID = keys[currentIndex < len - 1 ? currentIndex + 1 : 0];
+            }
           }}
         >
-          ClearAll
-        </button>
+          {#each Object.keys(st.copiedData) as entry}
+            <option>{entry}</option>
+          {/each}
+        </select>
       </div>
 
       <!-- PREVIEW THINGS -->
@@ -402,14 +456,30 @@
 
 {#snippet DataPreview()}
   <div class="prose w-full">
-    <h3 class="opacity-30 mb-0">Current State</h3>
+    <h3 class="opacity-30 mb-0">
+      Current State ({Object.keys(st.copiedData).findIndex((id) => id === st.currentCopyingID) +
+        1}/{Object.keys(st.copiedData).length})
+    </h3>
+    <p class="opacity-30 text-xs">Preset: {st.currentPreset}</p>
     <div class="text-sm">
       {#each st.itemsToCopy as item}
-        <p>
+        <p class="flex items-center">
           <span class="opacity-50">{item}:</span>
-          {st.copiedData[st.currentCopyingID]?.[item]}
+          <input
+            type="text"
+            placeholder=""
+            class="input input-ghost input-sm"
+            value={st.copiedData[st.currentCopyingID]?.[item] || ""}
+            oninput={(e) => {
+              if (!st.copiedData[st.currentCopyingID]) st.copiedData[st.currentCopyingID] = {};
+              st.copiedData[st.currentCopyingID][item] = e.currentTarget.value;
+            }}
+          />
+          <!-- {st.copiedData[st.currentCopyingID]?.[item]} -->
         </p>
       {/each}
+      <div class="divider"></div>
+
       <!-- show current clipboard -->
       <p class="opacity-50 text-xs">
         Clipboard:
@@ -424,7 +494,7 @@
 {#snippet PresetsPane()}
   <div class="flex gap-2 w-full">
     <!-- preset manager -->
-    <div class="prose">
+    <div class="prose max-w-3/5">
       <h3 class="opacity-30 mb-0">Presets</h3>
       {@render PresetManager()}
     </div>
@@ -470,6 +540,18 @@
             }
           }}
         ></textarea>
+
+        <fieldset class="fieldset">
+          <legend class="fieldset-legend">ID Key position when exporting</legend>
+          <select class="select" bind:value={st.IDKeyPositionInData}>
+            <option value={-1}>Don't export</option>
+            <option value={0}>First</option>
+            {#each st.itemsToCopy as _, i}
+              <option value={i + 1}>After {st.itemsToCopy[i]}</option>
+            {/each}
+          </select>
+        </fieldset>
+
         <button
           class="btn btn-sm {st.itemsToCopy.join('\n') !== settings.thingsToCopyRaw
             ? !st.thingsToCopyLinesOk
@@ -492,7 +574,7 @@
 {#snippet PresetManager()}
   <!-- current preset name -->
   <fieldset class="fieldset">
-    <legend class="fieldset-legend">current preset name</legend>
+    <legend class="fieldset-legend">Current preset name</legend>
     <input type="text" class="input" placeholder="current preset" bind:value={st.currentPreset} />
 
     <!-- add new preset button -->
@@ -550,54 +632,138 @@
 {/snippet}
 
 {#snippet SettingsPane()}
-  <div class="flex flex-col prose w-full">
+  <div
+    class="flex flex-col prose"
+    style="width: calc(calc(calc(calc(100vw / var(--UISCALE)) - {SavedData.v
+      .UIShortenPx}px) - calc(var(--spacing) * 24)) - 16px);"
+  >
     <h3>Settings</h3>
+    <p class="text-sm p-0 !mt-0 w-full text-center">
+      Created By <a href="https://github.com/vfxturjo">vfxTurjo</a>.
+    </p>
 
     <!-- reset all button -->
-    <button
-      class="btn btn-sm"
-      onclick={(e) => {
-        settingsMethods.resetSettings();
-        applyFadeOutTransition(e.target as HTMLButtonElement, {
-          stylingClass: "btn-success",
-          startDelay: 1,
-        });
-      }}
-    >
-      Reset All
-    </button>
+    <div class="flex flex-row gap-2 justify-center w-full">
+      <button
+        class="btn btn-sm"
+        onclick={(e) => {
+          settingsMethods.resetSettings();
+          applyFadeOutTransition(e.target as HTMLButtonElement, {
+            stylingClass: "btn-success",
+            startDelay: 1,
+          });
+        }}
+      >
+        Reset All
+      </button>
 
-    <fieldset class="fieldset">
+      <button
+        class="btn btn-sm"
+        onclick={(e) => {
+          settingsMethods.resetPresets();
+          applyFadeOutTransition(e.target as HTMLButtonElement, {
+            stylingClass: "btn-success",
+            startDelay: 1,
+          });
+        }}
+      >
+        Reset Presets only
+      </button>
+
+      <button
+        class="btn btn-sm"
+        onclick={(e) => {
+          ipc.openAppDataFolder();
+          applyFadeOutTransition(e.target as HTMLButtonElement, {
+            stylingClass: "btn-success",
+            startDelay: 1,
+          });
+        }}
+      >
+        Open AppData Folder
+      </button>
+
+      <button
+        class="btn btn-sm"
+        onclick={() => {
+          ipc.openDevTools();
+        }}
+      >
+        Open DevTools
+      </button>
+    </div>
+    <div class="divider">App</div>
+
+    <div class=" w-full fieldset flex justify-between">
       <legend class="fieldset-legend">UI Scale: {settings.UIScale}</legend>
-      <select bind:value={settings.UIScale} placeholder="UI Scale" class="select">
+      <select bind:value={settings.UIScale} placeholder="UI Scale" class="select w-1/2">
         <option disabled selected>UI Scale</option>
         {#each Array(11) as _, i}
           <option value={(0.9 + i * 0.1).toFixed(1)}>{(0.9 + i * 0.1).toFixed(1)}</option>
         {/each}
       </select>
-    </fieldset>
+    </div>
 
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Reduce window size</legend>
-      <input type="range" min="0" max="500" bind:value={settings.UIShortenPx} class="range" />
-    </fieldset>
+    <div class="w-full fieldset flex justify-between">
+      <legend class="fieldset-legend">Reduce Max width</legend>
+      <input
+        type="range"
+        min="0"
+        max="500"
+        class="range w-1/2"
+        value={SavedData.v.UIShortenPx}
+        onchange={(e) => {
+          SavedData.v.UIShortenPx = parseInt((e.target as HTMLInputElement).value);
+        }}
+      />
+    </div>
 
-    <fieldset class="fieldset">
+    <!-- <fieldset class="fieldset">
       <legend class="fieldset-legend">Auto next variable</legend>
       <label class="swap btn">
         <input type="checkbox" bind:checked={settings.autoStartNextItem} />
         <div class="swap-on">ON</div>
         <div class="swap-off">OFF</div>
       </label>
-    </fieldset>
+    </fieldset> -->
 
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Choose Var with CapsLock</legend>
-      <label class="swap btn">
-        <input type="checkbox" bind:checked={settings.CapsLockNavigation} />
+    <div class="fieldset flex gap-0 pb-0 mb-0 justify-between">
+      <div class="w-1/2">
+        <legend class="fieldset-legend pb-1">
+          Choose Variables using Number keys: <br />
+        </legend>
+        <span class="opacity-60">Ctrl+Home to start, Ctrl+End to end.</span>
+      </div>
+      <label class="swap btn w-1/2">
+        <input type="checkbox" bind:checked={SavedData.v.capsLockNavigation} />
         <div class="swap-on">ON</div>
         <div class="swap-off">OFF</div>
       </label>
-    </fieldset>
+    </div>
+
+    <div class="fieldset flex justify-between p-0">
+      <legend class="fieldset-legend">Default Preset on Start</legend>
+      <select
+        bind:value={SavedData.v.defaultPresetOnLoad}
+        placeholder="Default Preset"
+        class="select w-1/2"
+      >
+        {#each SavedData.v.presets as preset}
+          <option value={preset.name}>{preset.name}</option>
+        {/each}
+      </select>
+    </div>
+
+    <div class="divider">Session</div>
+
+    <button
+      class="btn btn-sm"
+      onclick={(e) => {
+        clearState();
+        applyFadeOutTransition(e.target as HTMLButtonElement);
+      }}
+    >
+      Clear All Collected Data
+    </button>
   </div>
 {/snippet}
