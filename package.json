@@ -13,8 +13,8 @@
     "format": "prettier --write ."
   },
   "build": {
-    "appId": "your.app.id",
-    "productName": "YourProductName",
+    "appId": "vfxTurjo.smart-copy",
+    "productName": "SmartCopy",
     "directories": {
       "output": "build"
     },
@@ -24,7 +24,7 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "path/to/your/icon/icon.ico"
+      "icon": "./electron/assets/SmartCopy.ico"
     },
     "mac": {
       "target": "dmg",

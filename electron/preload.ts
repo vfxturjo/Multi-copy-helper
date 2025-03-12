@@ -24,8 +24,12 @@ export const CONTEXT_BRIDGE = {
   // },
 
   // unregister global shortcut to cancel copy process
-  globalShortcutToCancelCopy: () => {
+  registerGlobalShortcutForListeningToCancel: () => {
     ipcRenderer.send("globalShortcutToCancel");
+  },
+
+  unregisterGlobalShortcutForListeningToCancel: () => {
+    ipcRenderer.send("globalShortcutToCancel", "stop");
   },
 
   on: (event, callback) => {
@@ -34,6 +38,11 @@ export const CONTEXT_BRIDGE = {
 
   ToggleAlwaysOnTop: () => {
     ipcRenderer.send("ToggleAlwaysOnTop");
+  },
+
+  // enable caps lock navigation
+  SetNumKeysNavigation: (keys?: string) => {
+    ipcRenderer.send("SetNumKeysNavigation", keys);
   },
 };
 

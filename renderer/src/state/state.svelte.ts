@@ -1,31 +1,41 @@
 import { PersistedStateObjectAdvanced } from "./persistedStoreAdvanced.svelte";
 
+interface oneRow {
+  [key: string]: string;
+}
+
 export const state: {
   currentIDKeyName: string;
-  currentID: string;
+  currentCopyingID: string;
+  currentCopyingVar: string | null;
   itemsToCopy: string[];
-  currentCopying: string | null;
   currentClipboard: string;
-  copiedData: { [key: string]: string };
+  copiedData: { [key: string]: oneRow };
   currentPreviewView: "DataPreview" | "settings" | "presets";
   isAlwaysOnTop: boolean;
   currentPreset: string;
   thingsToCopyLinesOk: boolean;
   showMainWindow: boolean;
   showMainWindowLock: boolean;
+  numKeysNavigationState: boolean;
 } = $state({
-  showMainWindow: true,
-  showMainWindowLock: true,
-  currentIDKeyName: "ID",
-  currentID: "Texas A&M",
   itemsToCopy: [],
-  currentCopying: null,
+
+  currentIDKeyName: "ID",
+  currentCopyingID: "Texas A&M",
+  currentCopyingVar: null,
+
   currentClipboard: "",
   copiedData: {},
-  currentPreviewView: "DataPreview",
+
   isAlwaysOnTop: true,
+  showMainWindow: true,
+  showMainWindowLock: true,
+  currentPreviewView: "DataPreview",
+
   currentPreset: "New",
   thingsToCopyLinesOk: true,
+  numKeysNavigationState: false,
 });
 
 export const draggingInfo = $state({
@@ -47,9 +57,17 @@ export interface PresetObject {
 export const settings: {
   thingsToCopyRaw: string;
   currentPreset: string;
+  UIScale: number;
+  UIShortenPx: number;
+  autoStartNextItem: boolean;
+  CapsLockNavigation: boolean;
 } = $state({
   thingsToCopyRaw: "",
   currentPreset: "default",
+  UIScale: 1.1,
+  UIShortenPx: 0,
+  autoStartNextItem: false,
+  CapsLockNavigation: false,
 });
 
 const defaultSavedData: {
@@ -76,7 +94,7 @@ export const settingsMethods = {
     SavedData.v.presets.push({
       name: state.currentPreset,
       currentIDKeyName: state.currentIDKeyName,
-      currentID: state.currentID,
+      currentID: state.currentCopyingID,
       itemsToCopy: state.itemsToCopy,
     });
     settings.currentPreset = state.currentPreset;
@@ -88,7 +106,7 @@ export const settingsMethods = {
       SavedData.v.presets[index] = {
         name: state.currentPreset,
         currentIDKeyName: state.currentIDKeyName,
-        currentID: state.currentID,
+        currentID: state.currentCopyingID,
         itemsToCopy: state.itemsToCopy,
       };
     }
@@ -96,7 +114,7 @@ export const settingsMethods = {
 
   loadPreset: (preset: PresetObject) => {
     state.currentIDKeyName = preset.currentIDKeyName;
-    state.currentID = preset.currentID;
+    state.currentCopyingID = preset.currentID;
     state.itemsToCopy = preset.itemsToCopy;
     settings.thingsToCopyRaw = preset.itemsToCopy.join("\n");
 

@@ -1,3 +1,9 @@
+# TODO
+
+SetVarID diye basically onekgula row er kaj kora jay. var id k key hisebe use kore tar vitorer info store kora jay.
+Choose which Variable to be the ID. Also turn on/off automatic next key waiting. When capslock is on, select var using number 1-9.
+see existing copiedData with "Select ID" button at SetVarID button on settings pane.
+
 ## Electron-Svelte Template
 
 Get started creatinbg modern Electron/Svelte/Typescript with this templatw which provides hotreloading, electron-builder, svelte, and typescript setup. This template is a great starting off point for building your next project. The frontend and backend code are seperated and can easily be worked on independently of one another. Furthermore, with hotreloading of not only the svelte but also all typescript this makes development a breeze.

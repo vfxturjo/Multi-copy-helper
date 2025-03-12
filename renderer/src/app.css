@@ -24,7 +24,7 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  --UISCALE: 1.3;
+  --UISCALE: 1.1;
 }
 
 /* Reference Button for scaling the UI 
@@ -60,6 +60,14 @@ body {
 
 #main-window {
   background-color: rgba(0, 0, 0, 0.5);
+
+  /* GlassMorphism */
+  /* From https://css.glass */
+  /* background: rgba(0, 0, 0, 0.29); */
+  /* border-radius: 16px; */
+  /* box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1); */
+  /* backdrop-filter: blur(6.3px); */
+  /* -webkit-backdrop-filter: blur(6.3px); */
 }
 
 /* SCROLLBAR STUFF */

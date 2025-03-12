@@ -4,12 +4,17 @@
   import DragLogo from "./assets/DragLogo.svelte";
 
   import { itemsToCopyDefault } from "./itemsToCopy";
-  import { SavedData, settings, settingsMethods, state } from "./state/state.svelte";
+  import { SavedData, settings, settingsMethods, state as st } from "./state/state.svelte";
   import { applyFadeOutTransition } from "./myCustomStyles";
   import { onMount } from "svelte";
+  import KeyboardLogo from "./assets/keyboardLogo.svelte";
 
-  state.itemsToCopy = itemsToCopyDefault;
-  state.currentCopying = null;
+  st.itemsToCopy = itemsToCopyDefault;
+  st.currentCopyingVar = null;
+
+  $effect(() => {
+    document.documentElement.style.setProperty("--UISCALE", settings.UIScale.toString());
+  });
 
   //
   // handling mouse events outside the window
@@ -30,41 +35,78 @@
 
   // register global shortcut
   function registerGlobalShortcutForListeningToCancel() {
-    ipc.globalShortcutToCancelCopy();
+    ipc.registerGlobalShortcutForListeningToCancel();
+  }
+
+  function unregisterGlobalShortcutForListeningToCancel() {
+    ipc.unregisterGlobalShortcutForListeningToCancel();
+  }
+
+  function SetNumKeysNavigation(keys: string[]) {
+    ipc.SetNumKeysNavigation(JSON.stringify(keys));
+  }
+
+  function disableCapsLockNavigation() {
+    // sending an empty array to disable
+    ipc.SetNumKeysNavigation();
   }
 
   ipc.on("cancel-copy", () => {
-    state.currentCopying = null;
+    st.currentCopyingVar = null;
   });
 
   ipc.on("clipboard-changed", (_: any, value: string) => {
     // set current clipboard
-    state.currentClipboard = value;
-
+    st.currentClipboard = value;
     setClipboardValueToData(value);
   });
+
+  function startWaitingForClipboard(item: string) {
+    st.currentCopyingVar = item;
+    registerGlobalShortcutForListeningToCancel();
+  }
 
   function setClipboardValueToData(value: string) {
     // reformat value to be more readable
     value = value.replace(/^\s+|\s+$/g, "");
 
-    if (state.currentCopying !== null) {
-      if (state.currentCopying === "###ID###") {
-        state.currentID = value;
+    if (st.currentCopyingID !== null && st.currentCopyingVar !== null) {
+      if (st.currentCopyingVar === "###ID###") {
+        st.currentCopyingID = value.trim();
       } else {
-        state.copiedData[state.currentCopying] = value.trim();
+        if (st.copiedData[st.currentCopyingID] === undefined) {
+          st.copiedData[st.currentCopyingID] = {};
+        }
+        st.copiedData[st.currentCopyingID][st.currentCopyingVar] = value.trim();
       }
 
-      state.currentCopying = null;
+      // do animation
+      const element = document
+        .querySelectorAll("#itemsToCopy-" + st.currentCopyingVar)
+        .forEach((e) => {
+          applyFadeOutTransition(e as HTMLButtonElement, {
+            stylingClass: "btn-success",
+            startDelay: 1,
+            removeClass: ["btn-success", "btn-soft", "opacity-60"],
+          });
+        });
+
+      // reset currently selecting thing
+      if (!settings.autoStartNextItem) {
+        st.currentCopyingVar = null;
+        unregisterGlobalShortcutForListeningToCancel();
+      } else {
+        startWaitingForClipboard(st.itemsToCopy[0]);
+      }
     }
   }
 
   // get current clipboard
   function getCurrentClipboardAndSave(toCopy: string) {
     ipcr.invoke("get-clipboard").then((value: string) => {
-      state.currentClipboard = value;
-
+      st.currentClipboard = value;
       setClipboardValueToData(value);
+      unregisterGlobalShortcutForListeningToCancel();
     });
   }
 
@@ -76,32 +118,96 @@
   });
 
   function clearState() {
-    state.copiedData = {};
-    state.currentID = "";
-    state.currentClipboard = "";
-    state.currentCopying = null;
-    state.itemsToCopy = itemsToCopyDefault;
+    st.copiedData = {};
+    st.currentCopyingID = "";
+    st.currentClipboard = "";
+    st.currentCopyingVar = null;
+    st.itemsToCopy = itemsToCopyDefault;
   }
 
   function copyFormattedData() {
     const defaultDelimiter = "\t";
     let formattedData = "";
 
-    // get data values as rows as a string for a clipboard
-    for (const [key, value] of Object.entries(state.copiedData)) {
-      formattedData += `${value}${defaultDelimiter}`;
+    // for each item in state.copiedData do this and then join with new line
+
+    for (const [key, value] of Object.entries(st.copiedData)) {
+      for (const [key2, value2] of Object.entries(value)) {
+        formattedData += `${value2}${defaultDelimiter}`;
+      }
+      formattedData = formattedData.slice(0, -1);
+      formattedData += "\n";
     }
     formattedData = formattedData.slice(0, -1);
 
     navigator.clipboard.writeText(formattedData);
   }
 
-  let draggable = false;
+  let draggable = $state(false);
   let draggableTimerHandle: NodeJS.Timeout;
   let draggableTimerHandleLogoEnter: NodeJS.Timeout;
 
   onMount(() => {
     settingsMethods.loadPreset(SavedData.v.presets[0]);
+
+    // if (settings.CapsLockNavigation) {
+    //   SetNumKeysNavigation(state.itemsToCopy);
+    // }
+  });
+
+  $effect(() => {
+    if (settings.CapsLockNavigation) {
+      console.log("enabling caps lock navigation");
+
+      SetNumKeysNavigation(st.itemsToCopy);
+    } else {
+      disableCapsLockNavigation();
+    }
+  });
+
+  let CapsLockNavigationTimerData: {
+    key: string;
+    timerHandle: NodeJS.Timeout | null;
+    lastKeyTime: number | null;
+    dblClickThreshldTime: number;
+  } = $state({
+    key: "",
+    timerHandle: null,
+    lastKeyTime: null,
+    dblClickThreshldTime: 500,
+  });
+
+  ipc.on("CapsLockNavigationPressed", (_: any, key: string) => {
+    console.log("CapsLockNavigationPressed", key);
+
+    // single click happened
+    console.log("assuming singleClick");
+    startWaitingForClipboard(key);
+    // CapsLockNavigationTimerData.timerHandle = setTimeout(() => {
+    //   // ipcr.send("globalShortcutToCancel", "stop");
+    // }, 500);
+
+    if (CapsLockNavigationTimerData.key === key) {
+      if (
+        Date.now() - CapsLockNavigationTimerData.lastKeyTime! <
+        CapsLockNavigationTimerData.dblClickThreshldTime
+      ) {
+        // double click happened
+        console.log("dblClick");
+        setClipboardValueToData(key);
+      }
+    }
+
+    // set last click things
+    if (CapsLockNavigationTimerData.key !== key) {
+      CapsLockNavigationTimerData.key = key;
+    }
+    CapsLockNavigationTimerData.lastKeyTime = Date.now();
+  });
+
+  ipc.on("NumKeysNavigationOn", (_: any, bool: boolean) => {
+    console.log("NumKeysNavigationOn", _, bool);
+    st.numKeysNavigationState = bool;
   });
 </script>
 
@@ -114,7 +220,8 @@
 
 <div
   id="main-window"
-  class="INTERACTIVE max-w-[496px] absolute bottom-0 right-0 overflow-hidden flex flex-col-reverse flex-wrap-reverse items-start"
+  style="max-width: calc(calc(100vw / var(--UISCALE)) - {settings.UIShortenPx}px);"
+  class="INTERACTIVE absolute bottom-0 right-0 overflow-hidden flex flex-col-reverse flex-wrap-reverse items-start"
 >
   <!-- Bottom part -->
   <div class="flex flex-row-reverse">
@@ -127,25 +234,25 @@
         copyFormattedData();
       }}
       onclick={() => {
-        if (state.showMainWindowLock) {
-          state.showMainWindowLock = false;
-          state.currentPreviewView = "DataPreview";
+        if (st.showMainWindowLock) {
+          st.showMainWindowLock = false;
+          st.currentPreviewView = "DataPreview";
         } else {
-          state.showMainWindowLock = true;
+          st.showMainWindowLock = true;
         }
       }}
       onmouseenter={() => {
-        state.showMainWindow = true;
+        st.showMainWindow = true;
 
         clearTimeout(draggableTimerHandle);
-        draggableTimerHandleLogoEnter = setTimeout(() => {
-          draggable = true;
-        }, 1000);
+        draggable = true;
+        // draggableTimerHandleLogoEnter = setTimeout(() => {
+        // }, 1000);
       }}
       onmouseleave={() => {
-        state.showMainWindow = false;
+        st.showMainWindow = false;
 
-        clearTimeout(draggableTimerHandleLogoEnter);
+        // clearTimeout(draggableTimerHandleLogoEnter);
         clearTimeout(draggableTimerHandle);
         draggableTimerHandle = setTimeout(() => {
           draggable = false;
@@ -153,6 +260,8 @@
       }}
     >
       <ClipboardIcon width={48} height={48} />
+
+      <!-- Dragging icon -->
       {#if draggable}
         <button
           class="absolute bg-accent bottom-0 right-0 w-8 h-8 flex justify-center items-center WinDraggable"
@@ -160,28 +269,49 @@
           <DragLogo width={10} height={10} />
         </button>
       {/if}
+
+      <!-- global keyboard shortcuts indicator -->
+      {#if st.numKeysNavigationState}
+        <button
+          class="absolute fill-yellow-300 bottom-0 right-0 w-4 h-4 flex justify-center items-center -translate-x-19 -translate-y-1"
+        >
+          <KeyboardLogo width={16} height={16} />
+        </button>
+      {/if}
     </div>
 
     <!-- LEFT BOTTOM SIDE -->
     <div class="flex flex-col overflow-hidden max-h-24">
       <div class="text-right w-full px-3">
-        <span class="text-sm opacity-50">{state.currentIDKeyName}:</span>
-        <span>{state.currentID}</span>
+        <span class="text-sm opacity-50">{st.currentIDKeyName}:</span>
+        <button
+          class="btn btn-neutral btn-sm {st.currentCopyingVar === '###ID###'
+            ? 'btn-primary'
+            : 'btn-neutral'}"
+          onclick={() => {
+            startWaitingForClipboard("###ID###");
+          }}
+          ondblclick={() => {
+            getCurrentClipboardAndSave("###ID###");
+          }}
+        >
+          {st.currentCopyingID == "" ? "Set ID" : st.currentCopyingID}
+        </button>
       </div>
       <div
         style="scrollbar-width: thin; scrollbar-color: f1f1f1; "
         class=" flex flex-row justify-end items-center overflow-hidden p-2 gap-1 flex-wrap overflow-y-auto w-full"
       >
-        {#each state.itemsToCopy as item}
+        {#each st.itemsToCopy as item}
           <button
-            class="btn btn-sm {state.currentCopying === item
-              ? 'btn-primary'
-              : state.copiedData[item] !== undefined
-                ? 'btn-success' // CHANGE LATER
-                : 'btn-neutral'}"
+            id="itemsToCopy-{item}"
+            class="btn btn-sm {st.currentCopyingVar === item
+              ? 'btn-primary btn-active'
+              : st.copiedData[st.currentCopyingID]?.[item] !== undefined
+                ? 'btn-success btn-soft opacity-60' // CHANGE LATER
+                : 'btn-outline'}"
             onclick={() => {
-              state.currentCopying = item;
-              registerGlobalShortcutForListeningToCancel();
+              startWaitingForClipboard(item);
             }}
             ondblclick={() => {
               getCurrentClipboardAndSave(item);
@@ -195,20 +325,20 @@
   </div>
 
   <!-- RIGHT TOP SIDE -->
-  {#if state.showMainWindowLock || state.showMainWindow}
+  {#if st.showMainWindowLock || st.showMainWindow}
     <div class="w-full h-full flex flex-row-reverse items-end overflow-hidden">
       <div
-        class="shrink-0 flex flex-col gap-1 w-24 p-2 {state.showMainWindowLock ? '' : 'opacity-30'}"
+        class="shrink-0 flex flex-col gap-1 w-24 p-2 {st.showMainWindowLock ? '' : 'opacity-30'}"
       >
         <button
           class="btn btn-sm"
           onclick={() => {
             ipc.ToggleAlwaysOnTop();
-            state.isAlwaysOnTop = !state.isAlwaysOnTop;
+            st.isAlwaysOnTop = !st.isAlwaysOnTop;
           }}
         >
           <!-- circle indicator to show always on top status -->
-          {#if state.isAlwaysOnTop}
+          {#if st.isAlwaysOnTop}
             <div aria-label="status" class="status status-sm status-success"></div>
           {:else}
             <div aria-label="status" class="status status-sm status-neutral"></div>
@@ -226,20 +356,19 @@
         </button>
 
         <button
-          class="btn btn-sm {state.currentPreviewView === 'settings' ? 'btn-success' : ''}"
+          class="btn btn-sm {st.currentPreviewView === 'settings' ? 'btn-success' : ''}"
           onclick={() => {
-            state.currentPreviewView =
-              state.currentPreviewView === "settings" ? "DataPreview" : "settings";
+            st.currentPreviewView =
+              st.currentPreviewView === "settings" ? "DataPreview" : "settings";
           }}
         >
           Settings
         </button>
 
         <button
-          class="btn btn-sm {state.currentPreviewView === 'presets' ? 'btn-success' : ''}"
+          class="btn btn-sm {st.currentPreviewView === 'presets' ? 'btn-success' : ''}"
           onclick={() => {
-            state.currentPreviewView =
-              state.currentPreviewView === "presets" ? "DataPreview" : "presets";
+            st.currentPreviewView = st.currentPreviewView === "presets" ? "DataPreview" : "presets";
           }}
         >
           Presets
@@ -253,30 +382,15 @@
         >
           ClearAll
         </button>
-
-        <button
-          class="btn btn-neutral btn-sm {state.currentCopying === '###ID###'
-            ? 'btn-primary'
-            : 'btn-neutral'}"
-          onclick={() => {
-            state.currentCopying = "###ID###";
-            registerGlobalShortcutForListeningToCancel();
-          }}
-          ondblclick={() => {
-            getCurrentClipboardAndSave("###ID###");
-          }}
-        >
-          SetVarID
-        </button>
       </div>
 
       <!-- PREVIEW THINGS -->
       <div class="min-h-64 grow flex flex-col items-end p-2 bg-gray-800 prose">
-        {#if state.currentPreviewView === "DataPreview"}
+        {#if st.currentPreviewView === "DataPreview"}
           {@render DataPreview()}
-        {:else if state.currentPreviewView === "presets"}
+        {:else if st.currentPreviewView === "presets"}
           {@render PresetsPane()}
-        {:else if state.currentPreviewView === "settings"}
+        {:else if st.currentPreviewView === "settings"}
           {@render SettingsPane()}
         {/if}
       </div>
@@ -288,18 +402,18 @@
   <div class="prose w-full">
     <h3 class="opacity-30 mb-0">Current State</h3>
     <div class="text-sm">
-      {#each state.itemsToCopy as item}
+      {#each st.itemsToCopy as item}
         <p>
           <span class="opacity-50">{item}:</span>
-          {state.copiedData[item]}
+          {st.copiedData[st.currentCopyingID]?.[item]}
         </p>
       {/each}
       <!-- show current clipboard -->
       <p class="opacity-50 text-xs">
         Clipboard:
-        {state.currentClipboard.length > 100
-          ? state.currentClipboard.slice(0, 100) + "..."
-          : state.currentClipboard}
+        {st.currentClipboard.length > 100
+          ? st.currentClipboard.slice(0, 100) + "..."
+          : st.currentClipboard}
       </p>
     </div>
   </div>
@@ -325,7 +439,7 @@
           type="text"
           class="input input-sm"
           placeholder="ID Key Name"
-          bind:value={state.currentIDKeyName}
+          bind:value={st.currentIDKeyName}
         />
       </fieldset>
 
@@ -348,25 +462,25 @@
             const uniqueLines = new Set(lines);
 
             if (uniqueLines.size !== lines.length) {
-              state.thingsToCopyLinesOk = false;
+              st.thingsToCopyLinesOk = false;
             } else {
-              state.thingsToCopyLinesOk = true;
+              st.thingsToCopyLinesOk = true;
             }
           }}
         ></textarea>
         <button
-          class="btn btn-sm {state.itemsToCopy.join('\n') !== settings.thingsToCopyRaw
-            ? !state.thingsToCopyLinesOk
+          class="btn btn-sm {st.itemsToCopy.join('\n') !== settings.thingsToCopyRaw
+            ? !st.thingsToCopyLinesOk
               ? 'btn-disabled'
               : 'btn-primary'
             : 'btn-neutral'}"
           onclick={() => {
             settings.thingsToCopyRaw = settings.thingsToCopyRaw.trim();
             settings.thingsToCopyRaw.split("\n");
-            state.itemsToCopy = settings.thingsToCopyRaw.split("\n").map((item) => item.trim());
+            st.itemsToCopy = settings.thingsToCopyRaw.split("\n").map((item) => item.trim());
           }}
         >
-          {!state.thingsToCopyLinesOk ? "Dupes not allowed!" : "Save"}
+          {!st.thingsToCopyLinesOk ? "Dupes not allowed!" : "Save"}
         </button>
       </fieldset>
     </div>
@@ -377,22 +491,17 @@
   <!-- current preset name -->
   <fieldset class="fieldset">
     <legend class="fieldset-legend">current preset name</legend>
-    <input
-      type="text"
-      class="input"
-      placeholder="current preset"
-      bind:value={state.currentPreset}
-    />
+    <input type="text" class="input" placeholder="current preset" bind:value={st.currentPreset} />
 
     <!-- add new preset button -->
     <button
       class="btn btn-sm {SavedData.v.presets
-        .find((preset) => preset.name == state.currentPreset)
-        ?.itemsToCopy.toString() != state.itemsToCopy.toString()
+        .find((preset) => preset.name == st.currentPreset)
+        ?.itemsToCopy.toString() != st.itemsToCopy.toString()
         ? 'btn-primary'
         : 'btn-neutral'}"
       onclick={(e) => {
-        if (SavedData.v.presets.find((preset) => preset.name === state.currentPreset)) {
+        if (SavedData.v.presets.find((preset) => preset.name === st.currentPreset)) {
           settingsMethods.updatePreset();
         } else {
           settingsMethods.addPreset();
@@ -405,12 +514,12 @@
       }}
     >
       <!-- show "Add New" if there is no preset with the same name -->
-      {#if !SavedData.v.presets.find((preset) => preset.name == state.currentPreset)}
+      {#if !SavedData.v.presets.find((preset) => preset.name == st.currentPreset)}
         Add New
       {:else}
         {SavedData.v.presets
-          .find((preset) => preset.name == state.currentPreset)
-          ?.itemsToCopy.toString() != state.itemsToCopy.toString()
+          .find((preset) => preset.name == st.currentPreset)
+          ?.itemsToCopy.toString() != st.itemsToCopy.toString()
           ? "Update"
           : "Saved"}
       {/if}
@@ -422,11 +531,9 @@
   <div class="w-full flex flex-row justify-end items-center overflow-hidden p-2 gap-1 flex-wrap">
     {#each SavedData.v.presets as preset}
       <button
-        class="btn btn-sm w-fit {preset.name === state.currentPreset
-          ? 'btn-primary'
-          : 'btn-neutral'}"
+        class="btn btn-sm w-fit {preset.name === st.currentPreset ? 'btn-primary' : 'btn-neutral'}"
         onclick={(e) => {
-          state.currentPreset = preset.name;
+          st.currentPreset = preset.name;
           settingsMethods.loadPreset(preset);
         }}
         oncontextmenu={(e) => {
@@ -457,5 +564,38 @@
     >
       Reset All
     </button>
+
+    <fieldset class="fieldset">
+      <legend class="fieldset-legend">UI Scale: {settings.UIScale}</legend>
+      <select bind:value={settings.UIScale} placeholder="UI Scale" class="select">
+        <option disabled selected>UI Scale</option>
+        {#each Array(11) as _, i}
+          <option value={(0.9 + i * 0.1).toFixed(1)}>{(0.9 + i * 0.1).toFixed(1)}</option>
+        {/each}
+      </select>
+    </fieldset>
+
+    <fieldset class="fieldset">
+      <legend class="fieldset-legend">Reduce window size</legend>
+      <input type="range" min="0" max="500" bind:value={settings.UIShortenPx} class="range" />
+    </fieldset>
+
+    <fieldset class="fieldset">
+      <legend class="fieldset-legend">Auto next variable</legend>
+      <label class="swap btn">
+        <input type="checkbox" bind:checked={settings.autoStartNextItem} />
+        <div class="swap-on">ON</div>
+        <div class="swap-off">OFF</div>
+      </label>
+    </fieldset>
+
+    <fieldset class="fieldset">
+      <legend class="fieldset-legend">Choose Var with CapsLock</legend>
+      <label class="swap btn">
+        <input type="checkbox" bind:checked={settings.CapsLockNavigation} />
+        <div class="swap-on">ON</div>
+        <div class="swap-off">OFF</div>
+      </label>
+    </fieldset>
   </div>
 {/snippet}

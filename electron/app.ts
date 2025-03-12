@@ -107,14 +107,77 @@ ipcMain.on(
 );
 
 // managing global shortcut for cancelling the copy process
-ipcMain.on("globalShortcutToCancel", () => {
-  console.log("globalShortcutToCancel", "Listening for Escape");
-  globalShortcut.register("Escape", () => {
-    mainWindow.webContents.send("cancel-copy");
-    globalShortcut.unregister("Escape");
-    console.log("Unregistered global shortcut", "Escape");
-  });
+ipcMain.on("globalShortcutToCancel", (_: any, eventType?: "stop" | "start") => {
+  console.log("globalShortcutToCancel", eventType ?? "waiting");
+
+  if (!eventType || eventType == "start") {
+    globalShortcut.register("Escape", () => {
+      mainWindow.webContents.send("cancel-copy");
+      unregisterEscKey();
+    });
+  } else {
+    unregisterEscKey();
+  }
 });
+
+function unregisterEscKey() {
+  globalShortcut.unregister("Escape");
+  console.log("Unregistered global shortcut", "Escape");
+}
+
+let keysStringStored: string;
+// managing global shortcut for CapsLock Navigation
+ipcMain.on("SetNumKeysNavigation", (_, keysString?: string) => {
+  console.log("SetNumKeysNavigation: ", keysString ?? "disabled");
+
+  keysStringStored = keysString;
+
+  if (keysString) {
+    globalShortcut.register("CommandOrControl+Home", () => {
+      resetCapsLockNavigationShortcuts(keysStringStored);
+      mainWindow.webContents.send("NumKeysNavigationOn", true);
+    });
+
+    globalShortcut.register("CommandOrControl+End", () => {
+      resetCapsLockNavigationShortcuts();
+      mainWindow.webContents.send("NumKeysNavigationOn", false);
+    });
+  } else {
+    globalShortcut.unregister("CommandOrControl+Home");
+    globalShortcut.unregister("CommandOrControl+End");
+    resetCapsLockNavigationShortcuts();
+    mainWindow.webContents.send("NumKeysNavigationOn", false);
+  }
+});
+
+function resetCapsLockNavigationShortcuts(keysString?: string) {
+  console.log("enabling CapsLock Nav for: ", keysString);
+
+  //  unregister all if registered
+  globalShortcut.unregister("`");
+  for (let i = 0; i < 10; i++) {
+    if (globalShortcut.isRegistered(String(i))) {
+      globalShortcut.unregister(String(i));
+    }
+  }
+
+  // parse keys using json
+  const keys = keysString ? JSON.parse(keysString) : [];
+
+  // if keys argument is provided, enable navigation
+  if (keys) {
+    globalShortcut.register("`", () => {
+      console.log("CapsLockNavigationPressed", "IDkey");
+      mainWindow.webContents.send("CapsLockNavigationPressed", "###ID###");
+    });
+    for (let i = 0; i < keys.length; i++) {
+      globalShortcut.register((i + 1).toString(), () => {
+        console.log("CapsLockNavigationPressed", keys[i]);
+        mainWindow.webContents.send("CapsLockNavigationPressed", keys[i]);
+      });
+    }
+  }
+}
 
 // get current clipboard
 ipcMain.handle("get-clipboard", () => {
