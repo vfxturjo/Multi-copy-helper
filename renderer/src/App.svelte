@@ -19,7 +19,7 @@
   st.currentCopyingVar = null;
 
   $effect(() => {
-    document.documentElement.style.setProperty("--UISCALE", settings.UIScale.toString());
+    document.documentElement.style.setProperty("--UISCALE", SavedData.v.UIScale.toString());
   });
 
   //
@@ -69,6 +69,7 @@
 
   function startWaitingForClipboard(item: string) {
     st.currentCopyingVar = item;
+    st.highlightNotCopied = false;
     registerGlobalShortcutForListeningToCancel();
   }
 
@@ -106,13 +107,51 @@
       });
 
       // reset currently selecting thing
-      if (!settings.autoStartNextItem) {
-        st.currentCopyingVar = null;
-        unregisterGlobalShortcutForListeningToCancel();
+      if (!SavedData.v.autoStartNextItem) {
+        // auto start OFF
+        stopWaitingForClipboard();
       } else {
-        startWaitingForClipboard(st.itemsToCopy[0]);
+        // auto start ON
+        getNextEmptyVarAndStartWaitingForIt();
       }
     }
+  }
+
+  function stopWaitingForClipboard() {
+    st.currentCopyingVar = null;
+    unregisterGlobalShortcutForListeningToCancel();
+  }
+
+  function getNextEmptyVarAndStartWaitingForIt() {
+    const currentIndex = st.itemsToCopy.indexOf(st.currentCopyingVar!);
+    let nextItem: string | null = null;
+
+    // find the next index that has uncopied data
+    for (let i = currentIndex + 1; i < st.itemsToCopy.length; i++) {
+      const thisID = st.itemsToCopy[i];
+      if (st.copiedData[st.currentCopyingID]?.[st.itemsToCopy[i]] === undefined) {
+        nextItem = st.itemsToCopy[i];
+        break;
+      }
+    }
+    // if next item not found in this way, start from the beginning to search for an uncopied item
+    if (nextItem === null) {
+      for (let i = 0; i < st.itemsToCopy.length; i++) {
+        const thisID = st.itemsToCopy[i];
+        if (st.copiedData[st.currentCopyingID]?.[st.itemsToCopy[i]] === undefined) {
+          nextItem = st.itemsToCopy[i];
+          break;
+        }
+      }
+    }
+
+    if (nextItem) {
+      startWaitingForClipboard(nextItem);
+    } else {
+      // st.highlightNotCopied = true;
+    }
+
+    return nextItem;
   }
 
   // get current clipboard
@@ -174,7 +213,6 @@
 
   let draggable = $state(false);
   let draggableTimerHandle: NodeJS.Timeout;
-  let draggableTimerHandleLogoEnter: NodeJS.Timeout;
 
   onMount(() => {
     const foundPreset = SavedData.v.presets.find((p) => p.name === SavedData.v.defaultPresetOnLoad);
@@ -327,7 +365,9 @@
           id="itemsToCopy-IDIDIDIDID___"
           class="btn btn-neutral btn-sm {st.currentCopyingVar === '###ID###'
             ? 'btn-primary'
-            : 'btn-neutral'} {st.currentCopyingID == '' ? 'bg-red-800' : ''}
+            : st.currentCopyingID == ''
+              ? 'bg-red-800'
+              : 'btn-neutral'}
             {Object.keys(st.copiedData[st.currentCopyingID] || {}).length === st.itemsToCopy.length
             ? 'btn-warning animate-pulse'
             : ''}"
@@ -357,7 +397,9 @@
               ? 'btn-primary btn-active'
               : st.copiedData[st.currentCopyingID]?.[item] !== undefined
                 ? 'btn-success btn-soft opacity-60' // CHANGE LATER
-                : 'btn-outline'}"
+                : st.highlightNotCopied
+                  ? 'btn-warning animate-pulse'
+                  : 'btn-outline'}"
             onclick={() => {
               startWaitingForClipboard(item);
             }}
@@ -462,6 +504,21 @@
     </h3>
     <p class="opacity-30 text-xs">Preset: {st.currentPreset}</p>
     <div class="text-sm">
+      <!-- one for id -->
+      <p class="flex items-center">
+        <span class="opacity-50">ID:</span>
+        <input
+          type="text"
+          placeholder=""
+          class="input input-ghost input-sm"
+          value={st.currentCopyingID}
+          oninput={(e) => {
+            st.currentCopyingID = e.currentTarget.value;
+          }}
+        />
+      </p>
+
+      <!-- all variables -->
       {#each st.itemsToCopy as item}
         <p class="flex items-center">
           <span class="opacity-50">{item}:</span>
@@ -473,6 +530,17 @@
             oninput={(e) => {
               if (!st.copiedData[st.currentCopyingID]) st.copiedData[st.currentCopyingID] = {};
               st.copiedData[st.currentCopyingID][item] = e.currentTarget.value;
+            }}
+            onchange={(e) => {
+              // if was waiting for current thing to copy, then start waiting for next thing to copy if auto start next is on
+              // else stop waiting for current thing to copy
+              if (st.currentCopyingVar === item) {
+                if (SavedData.v.autoStartNextItem) {
+                  getNextEmptyVarAndStartWaitingForIt();
+                } else {
+                  stopWaitingForClipboard();
+                }
+              }
             }}
           />
           <!-- {st.copiedData[st.currentCopyingID]?.[item]} -->
@@ -544,7 +612,7 @@
         <fieldset class="fieldset">
           <legend class="fieldset-legend">ID Key position when exporting</legend>
           <select class="select" bind:value={st.IDKeyPositionInData}>
-            <option value={-1}>Don't export</option>
+            <option value={-1}>Don't export (not recommended)</option>
             <option value={0}>First</option>
             {#each st.itemsToCopy as _, i}
               <option value={i + 1}>After {st.itemsToCopy[i]}</option>
@@ -695,8 +763,8 @@
     <div class="divider">App</div>
 
     <div class=" w-full fieldset flex justify-between">
-      <legend class="fieldset-legend">UI Scale: {settings.UIScale}</legend>
-      <select bind:value={settings.UIScale} placeholder="UI Scale" class="select w-1/2">
+      <legend class="fieldset-legend">UI Scale: {SavedData.v.UIScale}</legend>
+      <select bind:value={SavedData.v.UIScale} placeholder="UI Scale" class="select w-1/2">
         <option disabled selected>UI Scale</option>
         {#each Array(11) as _, i}
           <option value={(0.9 + i * 0.1).toFixed(1)}>{(0.9 + i * 0.1).toFixed(1)}</option>
@@ -718,21 +786,22 @@
       />
     </div>
 
-    <!-- <fieldset class="fieldset">
-      <legend class="fieldset-legend">Auto next variable</legend>
-      <label class="swap btn">
-        <input type="checkbox" bind:checked={settings.autoStartNextItem} />
+    <div class="fieldset flex gap-0 pb-0 mb-0 justify-between">
+      <legend class="fieldset-legend pb-1"> Auto select next variable </legend>
+
+      <label class="swap btn w-1/2">
+        <input type="checkbox" bind:checked={SavedData.v.autoStartNextItem} />
         <div class="swap-on">ON</div>
         <div class="swap-off">OFF</div>
       </label>
-    </fieldset> -->
+    </div>
 
     <div class="fieldset flex gap-0 pb-0 mb-0 justify-between">
       <div class="w-1/2">
         <legend class="fieldset-legend pb-1">
-          Choose Variables using Number keys: <br />
+          Choose Variables using Number keys <br />
         </legend>
-        <span class="opacity-60">Ctrl+Home to start, Ctrl+End to end.</span>
+        <span class="opacity-60">Ctrl+Home=>start, Ctrl+End=>end. CapsLock=>Toggle</span>
       </div>
       <label class="swap btn w-1/2">
         <input type="checkbox" bind:checked={SavedData.v.capsLockNavigation} />

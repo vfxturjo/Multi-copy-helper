@@ -126,6 +126,17 @@ function unregisterEscKey() {
 }
 
 let keysStringStored: string;
+let NumKeysNavigationOnState = false;
+function SetNumKeysNavigationState(state: boolean) {
+  if (state) {
+    resetCapsLockNavigationShortcuts(keysStringStored);
+  } else {
+    resetCapsLockNavigationShortcuts();
+  }
+  mainWindow.webContents.send("NumKeysNavigationOn", state);
+  NumKeysNavigationOnState = state;
+}
+
 // managing global shortcut for CapsLock Navigation
 ipcMain.on("SetNumKeysNavigation", (_, keysString?: string) => {
   console.log("SetNumKeysNavigation: ", keysString ?? "disabled");
@@ -134,19 +145,26 @@ ipcMain.on("SetNumKeysNavigation", (_, keysString?: string) => {
 
   if (keysString) {
     globalShortcut.register("CommandOrControl+Home", () => {
-      resetCapsLockNavigationShortcuts(keysStringStored);
-      mainWindow.webContents.send("NumKeysNavigationOn", true);
+      SetNumKeysNavigationState(true);
     });
 
     globalShortcut.register("CommandOrControl+End", () => {
-      resetCapsLockNavigationShortcuts();
-      mainWindow.webContents.send("NumKeysNavigationOn", false);
+      SetNumKeysNavigationState(false);
+    });
+
+    // CapsLock to toggle
+    globalShortcut.register("CapsLock", () => {
+      if (NumKeysNavigationOnState) {
+        SetNumKeysNavigationState(false);
+      } else {
+        SetNumKeysNavigationState(true);
+      }
     });
   } else {
     globalShortcut.unregister("CommandOrControl+Home");
     globalShortcut.unregister("CommandOrControl+End");
-    resetCapsLockNavigationShortcuts();
-    mainWindow.webContents.send("NumKeysNavigationOn", false);
+    globalShortcut.unregister("CapsLock");
+    SetNumKeysNavigationState(false);
   }
 });
 

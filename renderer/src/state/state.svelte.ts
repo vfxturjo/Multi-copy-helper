@@ -19,6 +19,7 @@ export const state: {
   showMainWindow: boolean;
   showMainWindowLock: boolean;
   numKeysNavigationState: boolean;
+  highlightNotCopied: boolean;
 } = $state({
   itemsToCopy: [],
 
@@ -29,6 +30,8 @@ export const state: {
 
   currentClipboard: "",
   copiedData: {},
+
+  highlightNotCopied: false,
 
   isAlwaysOnTop: true,
   showMainWindow: true,
@@ -59,12 +62,8 @@ export interface PresetObject {
 
 export const settings: {
   thingsToCopyRaw: string;
-  UIScale: number;
-  autoStartNextItem: boolean;
 } = $state({
   thingsToCopyRaw: "",
-  UIScale: 1.1,
-  autoStartNextItem: false,
 });
 
 const defaultSavedData: {
@@ -73,6 +72,8 @@ const defaultSavedData: {
   defaultPresetOnLoad: string;
   UIShortenPx: number;
   capsLockNavigation: boolean;
+  UIScale: number;
+  autoStartNextItem: boolean;
 } = {
   presets: [
     {
@@ -87,6 +88,8 @@ const defaultSavedData: {
   defaultPresetOnLoad: "Default",
   UIShortenPx: 0,
   capsLockNavigation: true,
+  UIScale: 1.1,
+  autoStartNextItem: false,
 };
 
 export const SavedData = new PersistedStateObjectAdvanced("settings", defaultSavedData, {
