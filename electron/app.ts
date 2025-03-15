@@ -2,13 +2,6 @@ import { app, BrowserWindow, globalShortcut, ipcMain, IpcMainEvent, shell } from
 import electronReload from "electron-reload";
 import { join } from "path";
 
-// // MAKE IT PORTABLE
-// import path from "path";
-// if (process.env.PORTABLE_EXECUTABLE_DIR)
-//   app.setPath("userData", path.join(process.env.PORTABLE_EXECUTABLE_DIR, "data"));
-
-// // MAIN CODE
-
 let mainWindow: BrowserWindow;
 
 app.once("ready", main);
@@ -139,6 +132,8 @@ function SetNumKeysNavigationState(state: boolean) {
 
 // managing global shortcut for CapsLock Navigation
 ipcMain.on("SetNumKeysNavigation", (_, keysString?: string) => {
+  console.log("IM TRIGGERED");
+
   console.log("SetNumKeysNavigation: ", keysString ?? "disabled");
 
   keysStringStored = keysString;
@@ -202,6 +197,12 @@ ipcMain.handle("get-clipboard", () => {
   globalShortcut.unregister("Escape");
   console.log("Unregistered global shortcut", "Escape");
   return clipboard.readText();
+});
+
+// set current clipboard
+ipcMain.handle("set-clipboard", (_, text: string) => {
+  clipboard.clear();
+  clipboard.writeText(text);
 });
 
 // handle always on top toggle

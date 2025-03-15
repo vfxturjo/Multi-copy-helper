@@ -14,6 +14,8 @@
   import { applyFadeOutTransition } from "./myCustomStyles";
   import { onMount } from "svelte";
   import KeyboardLogo from "./assets/keyboardLogo.svelte";
+  import TickLogo from "./assets/TickLogo.svelte";
+  import { fade } from "svelte/transition";
 
   st.itemsToCopy = itemsToCopyDefault;
   st.currentCopyingVar = null;
@@ -90,30 +92,37 @@
         st.copiedData[st.currentCopyingID][st.currentCopyingVar] = value.trim();
       }
 
-      // do animation
-      let element: NodeListOf<Element>;
-      if (st.currentCopyingVar !== "###ID###") {
-        element = document.querySelectorAll("#itemsToCopy-" + st.currentCopyingVar);
-      } else {
-        element = document.querySelectorAll("#itemsToCopy-IDIDIDIDID___");
-      }
+      currentItemAnimate();
+      currentItemDone();
+    }
+  }
 
-      element.forEach((e) => {
-        applyFadeOutTransition(e as HTMLButtonElement, {
-          stylingClass: "btn-success",
-          startDelay: 1,
-          removeClass: ["btn-success", "btn-soft", "opacity-60"],
-        });
+  function currentItemAnimate() {
+    // do animation
+    let element: NodeListOf<Element>;
+    if (st.currentCopyingVar !== "###ID###") {
+      element = document.querySelectorAll("#itemsToCopy-" + st.currentCopyingVar);
+    } else {
+      element = document.querySelectorAll("#itemsToCopy-IDIDIDIDID___");
+    }
+
+    element.forEach((e) => {
+      applyFadeOutTransition(e as HTMLButtonElement, {
+        stylingClass: "btn-success",
+        startDelay: 1,
+        removeClass: ["btn-success", "btn-soft", "opacity-60"],
       });
+    });
+  }
 
-      // reset currently selecting thing
-      if (!SavedData.v.autoStartNextItem) {
-        // auto start OFF
-        stopWaitingForClipboard();
-      } else {
-        // auto start ON
-        getNextEmptyVarAndStartWaitingForIt();
-      }
+  function currentItemDone() {
+    // reset currently selecting thing
+    if (!SavedData.v.autoStartNextItem) {
+      // auto start OFF
+      stopWaitingForClipboard();
+    } else {
+      // auto start ON
+      getNextEmptyVarAndStartWaitingForIt();
     }
   }
 
@@ -148,6 +157,7 @@
     if (nextItem) {
       startWaitingForClipboard(nextItem);
     } else {
+      stopWaitingForClipboard();
       // st.highlightNotCopied = true;
     }
 
@@ -178,6 +188,8 @@
     settingsMethods.loadPreset(
       SavedData.v.presets.find((p) => p.name === st.currentPreset) as PresetObject,
     );
+
+    resetNumkeysNavigation();
   }
 
   function copyFormattedData() {
@@ -190,6 +202,16 @@
     for (const [key, value] of Object.entries(copiedDataObj)) {
       // create arrays of arrays from the entries
       // add also the main key or ID into the formatted data, specified by st.IDKeyPositionInData
+
+      // for every value object, create an array that comes from st.itemsToCopy (filling in gaps)
+      for (let i = 0; i < st.itemsToCopy.length; i++) {
+        if (value[st.itemsToCopy[i]] === undefined) {
+          value[st.itemsToCopy[i]] = "";
+        } else {
+          value[st.itemsToCopy[i]] = value[st.itemsToCopy[i]].trim();
+        }
+      }
+
       let row = Object.values(value);
 
       // Insert ID at specified position
@@ -208,11 +230,27 @@
 
     // join each row array with delimiter and then join all rows with newline
     formattedData = copiedDataArray.map((row) => row.join(defaultDelimiter)).join("\n");
-    navigator.clipboard.writeText(formattedData);
+
+    // empty clipboard and then write formatted data
+    ipcr.invoke("set-clipboard", formattedData);
+
+    st.showCopiedSuccessLogo = true;
+
+    setTimeout(() => {
+      st.showCopiedSuccessLogo = false;
+    }, 1000);
   }
 
   let draggable = $state(false);
   let draggableTimerHandle: NodeJS.Timeout;
+
+  function resetNumkeysNavigation() {
+    if (SavedData.v.capsLockNavigation) {
+      SetNumKeysNavigation(st.itemsToCopy);
+    } else {
+      disableCapsLockNavigation();
+    }
+  }
 
   onMount(() => {
     const foundPreset = SavedData.v.presets.find((p) => p.name === SavedData.v.defaultPresetOnLoad);
@@ -224,21 +262,12 @@
     }
 
     // enable numkeys navigations if enabled
-    if (SavedData.v.capsLockNavigation) {
-      console.log("enabling caps lock navigation");
-      SetNumKeysNavigation(st.itemsToCopy);
-    } else {
-      disableCapsLockNavigation();
-    }
+    resetNumkeysNavigation();
   });
 
   $effect(() => {
-    if (SavedData.v.capsLockNavigation) {
-      console.log("enabling caps lock navigation");
-      SetNumKeysNavigation(st.itemsToCopy);
-    } else {
-      disableCapsLockNavigation();
-    }
+    SavedData.v.capsLockNavigation;
+    resetNumkeysNavigation();
   });
 
   let CapsLockNavigationTimerData: {
@@ -336,7 +365,11 @@
         }, 2000);
       }}
     >
-      <ClipboardIcon width={48} height={48} />
+      {#if st.showCopiedSuccessLogo}
+        <TickLogo width={24} height={24} />
+      {:else}
+        <ClipboardIcon width={48} height={48} />
+      {/if}
 
       <!-- Dragging icon -->
       {#if draggable}
@@ -363,14 +396,14 @@
         <span class="text-sm opacity-50">{st.currentIDKeyName}:</span>
         <button
           id="itemsToCopy-IDIDIDIDID___"
-          class="btn btn-neutral btn-sm {st.currentCopyingVar === '###ID###'
+          class="btn btn-neutral btn-sm
+            {Object.keys(st.copiedData[st.currentCopyingID] || {}).length === st.itemsToCopy.length
+            ? 'btn-warning animate-pulse'
+            : ''} {st.currentCopyingVar === '###ID###'
             ? 'btn-primary'
             : st.currentCopyingID == ''
               ? 'bg-red-800'
-              : 'btn-neutral'}
-            {Object.keys(st.copiedData[st.currentCopyingID] || {}).length === st.itemsToCopy.length
-            ? 'btn-warning animate-pulse'
-            : ''}"
+              : 'btn-neutral'}"
           onclick={() => {
             startWaitingForClipboard("###ID###");
           }}
@@ -393,15 +426,38 @@
         {#each st.itemsToCopy as item}
           <button
             id="itemsToCopy-{item}"
-            class="btn btn-sm {st.currentCopyingVar === item
-              ? 'btn-primary btn-active'
-              : st.copiedData[st.currentCopyingID]?.[item] !== undefined
-                ? 'btn-success btn-soft opacity-60' // CHANGE LATER
-                : st.highlightNotCopied
-                  ? 'btn-warning animate-pulse'
-                  : 'btn-outline'}"
+            class="btn btn-sm {(() => {
+              // If this item is currently being copied
+              if (st.currentCopyingVar === item) {
+                return 'btn-primary btn-active animate-[pulse_1s_ease-out_infinite]';
+              }
+              // not currently copying
+              // If this item does not exist or exists but empty
+              if (
+                st.copiedData[st.currentCopyingID]?.[item] === undefined ||
+                st.copiedData[st.currentCopyingID]?.[item] === ''
+              ) {
+                // not copied and empty
+                return 'btn-outline';
+              }
+              // not copied
+              // If highlighting uncopied items
+              if (st.highlightNotCopied) {
+                return 'btn-warning';
+              }
+              // Successfully copied
+              return 'btn-success btn-soft opacity-60';
+            })()}
+            }"
             onclick={() => {
               startWaitingForClipboard(item);
+            }}
+            onauxclick={() => {
+              st.miniPreviewEditing = true;
+              const focusEl = document.querySelector("#miniPreviewEditing") as HTMLInputElement;
+              if (focusEl) {
+                focusEl.focus();
+              }
             }}
             ondblclick={() => {
               getCurrentClipboardAndSave(item);
@@ -410,6 +466,14 @@
               e.preventDefault();
               st.currentCopyingVar = "";
               unregisterGlobalShortcutForListeningToCancel();
+            }}
+            onmouseenter={() => {
+              if (st.miniPreviewEditing == true) return;
+              st.miniPreview = item;
+            }}
+            onmouseleave={() => {
+              if (st.miniPreviewEditing == true) return;
+              st.miniPreview = "";
             }}
           >
             {item}
@@ -493,6 +557,8 @@
         {/if}
       </div>
     </div>
+  {:else if st.miniPreview !== "" || st.miniPreviewEditing == true}
+    {@render DataPreviewMini(st.miniPreview)}
   {/if}
 </div>
 
@@ -510,12 +576,22 @@
         <input
           type="text"
           placeholder=""
-          class="input input-ghost input-sm"
+          class="input input-ghost input-sm w-full"
           value={st.currentCopyingID}
           oninput={(e) => {
             st.currentCopyingID = e.currentTarget.value;
           }}
         />
+        <button
+          class="btn btn-sm hover:btn-error"
+          onclick={(e) => {
+            // delete id and data
+            delete st.copiedData[st.currentCopyingID];
+            st.currentCopyingID = "";
+          }}
+        >
+          ✕
+        </button>
       </p>
 
       <!-- all variables -->
@@ -525,7 +601,7 @@
           <input
             type="text"
             placeholder=""
-            class="input input-ghost input-sm"
+            class="input input-ghost input-sm w-full"
             value={st.copiedData[st.currentCopyingID]?.[item] || ""}
             oninput={(e) => {
               if (!st.copiedData[st.currentCopyingID]) st.copiedData[st.currentCopyingID] = {};
@@ -559,10 +635,41 @@
   </div>
 {/snippet}
 
+{#snippet DataPreviewMini(item: string)}
+  <div class="prose w-full h-full bg-gray-800">
+    <span class="m-2 mb-0 pb-0">{item}:</span>
+    <p class="flex items-center p-2 m-0 mt-0">
+      <textarea
+        id="miniPreviewEditing"
+        class="textarea h-min w-full"
+        value={st.copiedData[st.currentCopyingID]?.[item]}
+        onchange={(e) => {
+          if (!st.copiedData[st.currentCopyingID]) st.copiedData[st.currentCopyingID] = {};
+          st.copiedData[st.currentCopyingID][item] = e.currentTarget.value;
+
+          st.miniPreview = "";
+          st.miniPreviewEditing = false;
+
+          currentItemAnimate();
+          currentItemDone();
+        }}
+        onfocusout={() => {
+          st.miniPreview = "";
+          st.miniPreviewEditing = false;
+
+          currentItemAnimate();
+          currentItemDone();
+        }}
+      ></textarea>
+      <!-- {st.copiedData[st.currentCopyingID]?.[item]} -->
+    </p>
+  </div>
+{/snippet}
+
 {#snippet PresetsPane()}
   <div class="flex gap-2 w-full">
     <!-- preset manager -->
-    <div class="prose max-w-3/5">
+    <div class="prose w-3/5">
       <h3 class="opacity-30 mb-0">Presets</h3>
       {@render PresetManager()}
     </div>
@@ -570,7 +677,7 @@
     <div class="divider divider-horizontal m-0"></div>
 
     <!-- This preset settings -->
-    <div class="prose min-w-36 w-full">
+    <div class="prose min-w-36 w-2/5">
       <h3 class="opacity-30 mb-0">Current Preset</h3>
 
       <fieldset class="fieldset">
@@ -586,7 +693,7 @@
       <fieldset class="fieldset">
         <legend class="fieldset-legend">Things to Copy</legend>
         <textarea
-          class="textarea h-52"
+          class="textarea h-64"
           placeholder="columns to copy"
           bind:value={settings.thingsToCopyRaw}
           onpaste={(event) => {
@@ -609,19 +716,8 @@
           }}
         ></textarea>
 
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">ID Key position when exporting</legend>
-          <select class="select" bind:value={st.IDKeyPositionInData}>
-            <option value={-1}>Don't export (not recommended)</option>
-            <option value={0}>First</option>
-            {#each st.itemsToCopy as _, i}
-              <option value={i + 1}>After {st.itemsToCopy[i]}</option>
-            {/each}
-          </select>
-        </fieldset>
-
         <button
-          class="btn btn-sm {st.itemsToCopy.join('\n') !== settings.thingsToCopyRaw
+          class="btn btn-sm w-full {st.itemsToCopy.join('\n') !== settings.thingsToCopyRaw
             ? !st.thingsToCopyLinesOk
               ? 'btn-disabled'
               : 'btn-primary'
@@ -630,72 +726,162 @@
             settings.thingsToCopyRaw = settings.thingsToCopyRaw.trim();
             settings.thingsToCopyRaw.split("\n");
             st.itemsToCopy = settings.thingsToCopyRaw.split("\n").map((item) => item.trim());
+
+            resetNumkeysNavigation();
+            stopWaitingForClipboard();
           }}
         >
           {!st.thingsToCopyLinesOk ? "Dupes not allowed!" : "Save"}
         </button>
+      </fieldset>
+
+      <fieldset class="fieldset">
+        <legend class="fieldset-legend">ID Key position when exporting</legend>
+        <select class="select" bind:value={st.IDKeyPositionInData}>
+          <option value={-1}>Don't export (not recommended)</option>
+          <option value={0}>First</option>
+          {#each st.itemsToCopy as _, i}
+            <option value={i + 1}>After {st.itemsToCopy[i]}</option>
+          {/each}
+        </select>
       </fieldset>
     </div>
   </div>
 {/snippet}
 
 {#snippet PresetManager()}
-  <!-- current preset name -->
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Current preset name</legend>
-    <input type="text" class="input" placeholder="current preset" bind:value={st.currentPreset} />
-
-    <!-- add new preset button -->
-    <button
-      class="btn btn-sm {SavedData.v.presets
-        .find((preset) => preset.name == st.currentPreset)
-        ?.itemsToCopy.toString() != st.itemsToCopy.toString()
-        ? 'btn-primary'
-        : 'btn-neutral'}"
-      onclick={(e) => {
-        if (SavedData.v.presets.find((preset) => preset.name === st.currentPreset)) {
-          settingsMethods.updatePreset();
-        } else {
-          settingsMethods.addPreset();
-        }
-
-        applyFadeOutTransition(e.target as HTMLButtonElement, {
-          stylingClass: "btn-success",
-          startDelay: 1,
-        });
-      }}
-    >
-      <!-- show "Add New" if there is no preset with the same name -->
-      {#if !SavedData.v.presets.find((preset) => preset.name == st.currentPreset)}
-        Add New
-      {:else}
-        {SavedData.v.presets
+  <div class="flex flex-col h-full">
+    <!-- current preset name -->
+    <fieldset class="fieldset h-min">
+      <legend class="fieldset-legend">Current preset name</legend>
+      <div class="join">
+        <input
+          type="text"
+          class="input w-full input-sm"
+          placeholder="current preset"
+          bind:value={st.currentPreset}
+        />
+        <button
+          class="btn btn-sm hover:btn-error"
+          onclick={(e) => {
+            // delete preset
+            settingsMethods.deletePreset(
+              SavedData.v.presets.find((preset) => preset.name == st.currentPreset)!,
+            );
+          }}
+        >
+          ✕
+        </button>
+      </div>
+      <!-- add new preset button -->
+      <button
+        class="btn btn-sm {SavedData.v.presets
           .find((preset) => preset.name == st.currentPreset)
           ?.itemsToCopy.toString() != st.itemsToCopy.toString()
-          ? "Update"
-          : "Saved"}
-      {/if}
-    </button>
-  </fieldset>
-
-  <div class="divider m-0"></div>
-  <!-- preset list -->
-  <div class="w-full flex flex-row justify-end items-center overflow-hidden p-2 gap-1 flex-wrap">
-    {#each SavedData.v.presets as preset}
-      <button
-        class="btn btn-sm w-fit {preset.name === st.currentPreset ? 'btn-primary' : 'btn-neutral'}"
+          ? 'btn-primary'
+          : 'btn-neutral'}"
         onclick={(e) => {
-          st.currentPreset = preset.name;
-          settingsMethods.loadPreset(preset);
-        }}
-        oncontextmenu={(e) => {
-          e.preventDefault();
-          settingsMethods.deletePreset(preset);
+          if (SavedData.v.presets.find((preset) => preset.name === st.currentPreset)) {
+            settingsMethods.updatePreset();
+          } else {
+            settingsMethods.addPreset();
+          }
+
+          applyFadeOutTransition(e.target as HTMLButtonElement, {
+            stylingClass: "btn-success",
+            startDelay: 1,
+          });
         }}
       >
-        {preset.name}
+        <!-- show "Add New" if there is no preset with the same name -->
+        {#if !SavedData.v.presets.find((preset) => preset.name == st.currentPreset)}
+          Add New
+        {:else}
+          {SavedData.v.presets
+            .find((preset) => preset.name == st.currentPreset)
+            ?.itemsToCopy.toString() != st.itemsToCopy.toString()
+            ? "Update"
+            : "Saved"}
+        {/if}
       </button>
-    {/each}
+    </fieldset>
+
+    <div class="divider m-0"></div>
+    <!-- preset list -->
+
+    <div class="w-full flex flex-row content-start overflow-y-auto p-2 gap-1 flex-wrap h-48">
+      {#each SavedData.v.presets as preset}
+        <button
+          class="btn btn-sm w-fit {preset.name === st.currentPreset
+            ? 'btn-primary'
+            : 'btn-neutral'}"
+          onclick={(e) => {
+            st.currentPreset = preset.name;
+            settingsMethods.loadPreset(preset);
+          }}
+          oncontextmenu={(e) => {
+            // e.preventDefault();
+            // settingsMethods.deletePreset(preset);
+          }}
+        >
+          {preset.name}
+          {#if preset.name === SavedData.v.defaultPresetOnLoad}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              xmlns:xlink="http://www.w3.org/1999/xlink"
+              height="10px"
+              width="10px"
+              viewBox="0 0 47.94 47.94"
+            >
+              <path
+                style="fill:#ED8A19;"
+                d="M26.285,2.486l5.407,10.956c0.376,0.762,1.103,1.29,1.944,1.412l12.091,1.757  c2.118,0.308,2.963,2.91,1.431,4.403l-8.749,8.528c-0.608,0.593-0.886,1.448-0.742,2.285l2.065,12.042  c0.362,2.109-1.852,3.717-3.746,2.722l-10.814-5.685c-0.752-0.395-1.651-0.395-2.403,0l-10.814,5.685  c-1.894,0.996-4.108-0.613-3.746-2.722l2.065-12.042c0.144-0.837-0.134-1.692-0.742-2.285l-8.749-8.528  c-1.532-1.494-0.687-4.096,1.431-4.403l12.091-1.757c0.841-0.122,1.568-0.65,1.944-1.412l5.407-10.956  C22.602,0.567,25.338,0.567,26.285,2.486z"
+              />
+            </svg>
+          {/if}
+        </button>
+      {/each}
+    </div>
+
+    <div class="divider m-0"></div>
+
+    <!-- Presets Import-Export -->
+    <div class="flex flex-col w-full h-36">
+      <button
+        class="btn btn-sm"
+        onclick={(e) => {
+          settingsMethods.exportPresets();
+        }}>Export Presets</button
+      >
+
+      <fieldset class="fieldset w-full">
+        <legend class="fieldset-legend">Import Presets</legend>
+        <input
+          type="file"
+          class="file-input file-input-sm w-full"
+          accept="text/json"
+          id="importPresetsInput"
+        />
+        <div class="join w-full h-8">
+          <button
+            class="join-item w-1/2 btn btn-soft btn-accent btn-sm"
+            onclick={(e) => {
+              settingsMethods.importPresets("Append");
+            }}
+          >
+            Append
+          </button>
+          <button
+            class="join-item w-1/2 btn btn-soft btn-accent btn-sm"
+            onclick={(e) => {
+              settingsMethods.importPresets("Replace");
+            }}
+          >
+            Replace
+          </button>
+        </div>
+      </fieldset>
+    </div>
   </div>
 {/snippet}
 

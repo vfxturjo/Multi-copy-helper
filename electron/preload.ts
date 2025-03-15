@@ -46,6 +46,7 @@ export const CONTEXT_BRIDGE = {
 
   // enable caps lock navigation
   SetNumKeysNavigation: (keys?: string) => {
+    console.log("SetNumKeysNavigation", keys);
     ipcRenderer.send("SetNumKeysNavigation", keys);
   },
 };

@@ -13,6 +13,8 @@ export const state: {
   currentClipboard: string;
   copiedData: { [key: string]: oneRow };
   currentPreviewView: "DataPreview" | "settings" | "presets";
+  miniPreview: string;
+  miniPreviewEditing: boolean;
   isAlwaysOnTop: boolean;
   currentPreset: string;
   thingsToCopyLinesOk: boolean;
@@ -20,6 +22,7 @@ export const state: {
   showMainWindowLock: boolean;
   numKeysNavigationState: boolean;
   highlightNotCopied: boolean;
+  showCopiedSuccessLogo: boolean;
 } = $state({
   itemsToCopy: [],
 
@@ -27,6 +30,8 @@ export const state: {
   IDKeyPositionInData: 0,
   currentCopyingID: "Texas A&M",
   currentCopyingVar: null,
+
+  showCopiedSuccessLogo: false,
 
   currentClipboard: "",
   copiedData: {},
@@ -37,6 +42,8 @@ export const state: {
   showMainWindow: true,
   showMainWindowLock: true,
   currentPreviewView: "DataPreview",
+  miniPreview: "",
+  miniPreviewEditing: false,
 
   currentPreset: "Default",
   thingsToCopyLinesOk: true,
@@ -146,5 +153,47 @@ export const settingsMethods = {
 
   resetCollectedData: () => {
     state.copiedData = {};
+  },
+
+  exportPresets: () => {
+    const presetsJSON = JSON.stringify(SavedData.v.presets, null, 2);
+    const blob = new Blob([presetsJSON], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "presets.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+
+  importPresets: (importType: "Append" | "Replace") => {
+    const inputEl = document.querySelector("#importPresetsInput") as HTMLInputElement;
+    if (inputEl) {
+      const file = inputEl.files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const data = e.target?.result as string;
+          const presets = JSON.parse(data) as PresetObject[];
+          if (importType === "Append") {
+            presets.forEach((p) => {
+              if (SavedData.v.presets.find((preset) => preset.name === p.name)) {
+                p.name += " (2)";
+                let i = 2;
+                while (SavedData.v.presets.find((preset) => preset.name === p.name)) {
+                  p.name = p.name.replace(" (" + (i - 1) + ")", " (" + i + ")");
+                  i++;
+                }
+              }
+            });
+
+            SavedData.v.presets = [...SavedData.v.presets, ...presets];
+          } else if (importType === "Replace") {
+            SavedData.v.presets = presets;
+          }
+        };
+        reader.readAsText(file);
+      }
+    }
   },
 };
