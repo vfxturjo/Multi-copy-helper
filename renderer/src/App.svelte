@@ -315,6 +315,14 @@
     console.log("NumKeysNavigationOn", _, bool);
     st.numKeysNavigationState = bool;
   });
+
+  // auto backup code
+  // in 1 min interval, send all copied data to the main process
+  setInterval(() => {
+    if (st.copiedData) {
+      ipcr.send("autosave", JSON.stringify(st.copiedData, null, 2));
+    }
+  }, 60000);
 </script>
 
 <div
@@ -397,13 +405,14 @@
         <button
           id="itemsToCopy-IDIDIDIDID___"
           class="btn btn-neutral btn-sm
-            {Object.keys(st.copiedData[st.currentCopyingID] || {}).length === st.itemsToCopy.length
-            ? 'btn-warning animate-pulse'
-            : ''} {st.currentCopyingVar === '###ID###'
+           {st.currentCopyingVar === '###ID###'
             ? 'btn-primary'
             : st.currentCopyingID == ''
               ? 'bg-red-800'
-              : 'btn-neutral'}"
+              : Object.keys(st.copiedData[st.currentCopyingID] || {}).length ===
+                  st.itemsToCopy.length
+                ? 'btn-warning animate-pulse'
+                : 'btn-neutral'}"
           onclick={() => {
             startWaitingForClipboard("###ID###");
           }}

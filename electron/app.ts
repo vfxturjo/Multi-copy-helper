@@ -214,3 +214,38 @@ ipcMain.on("ToggleAlwaysOnTop", () => {
 ipcMain.on("open-app-data-folder", () => {
   shell.openPath(app.getPath("userData"));
 });
+
+function getAutoSaveFile() {
+  const logPath = join(app.getPath("userData"), "clipboard-logs");
+  const maxSessions = 5;
+
+  // Create logs directory if it doesn't exist
+  if (!require("fs").existsSync(logPath)) {
+    require("fs").mkdirSync(logPath);
+  }
+
+  // Get existing log files
+  const files = require("fs")
+    .readdirSync(logPath)
+    .filter((f: string) => f.startsWith("clipboard-log-"))
+    .sort();
+
+  // Remove oldest file if we exceed maxSessions
+  if (files.length >= maxSessions) {
+    require("fs").unlinkSync(join(logPath, files[0]));
+  }
+
+  // Create new log file with timestamp
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const logFile = join(logPath, `clipboard-log-${timestamp}.txt`);
+
+  return logFile;
+}
+
+let logFile = getAutoSaveFile();
+// in 1 min interval, save all copied data to a log file in the app data folder
+ipcMain.on("autosave", (_: any, text: string) => {
+  // Save current copiedData
+  require("fs").writeFileSync(logFile, text);
+  // console.log("autosaved: ", text);
+});
