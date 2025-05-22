@@ -619,10 +619,10 @@
   <div class="flex flex-col items-end w-full text-sm">
     {#each st.itemsToCopy as item}
       <p>
-        <span class="opacity-70 {SavedData.v.UI_showTransparentPreview_mini_textSize}"
+        <span class={SavedData.v.UI_showTransparentPreview_mini_textSize}
           >{st.copiedData[st.currentCopyingID]?.[item]} :</span
         >
-        <span class="opacity-70 {SavedData.v.UI_showTransparentPreview_mini_textSize}">{item}</span>
+        <span class={SavedData.v.UI_showTransparentPreview_mini_textSize}>{item}</span>
       </p>
     {/each}
   </div>
