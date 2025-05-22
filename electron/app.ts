@@ -1,6 +1,7 @@
 import { app, BrowserWindow, globalShortcut, ipcMain, IpcMainEvent, shell } from "electron";
 import electronReload from "electron-reload";
 import { join } from "path";
+const robot = require("@jitsi/robotjs");
 
 let mainWindow: BrowserWindow;
 
@@ -38,7 +39,7 @@ async function main() {
 
   mainWindow.once("ready-to-show", mainWindow.show);
   mainWindow.setTitle("SmartCopy");
-  // mainWindow.webContents.openDevTools();
+  mainWindow.webContents.openDevTools();
 }
 
 ipcMain.handle("get-version", (_, key: "electron" | "node") => {
@@ -199,15 +200,25 @@ ipcMain.handle("get-clipboard", () => {
   return clipboard.readText();
 });
 // get current clipboard
-ipcMain.handle("press-ctrlC", () => {
+ipcMain.handle("press-ctrlC", async () => {
   console.log("doing this");
 
-  mainWindow.sendInputEvent({
-    type: "keyDown",
-    keyCode: "c",
-    modifiers: ["control"],
-  });
+  try {
+    // Simulate Ctrl+C
+    robot.keyToggle("control", "down");
+    robot.keyToggle("c", "down");
+    robot.keyToggle("c", "up");
+    robot.keyToggle("control", "up");
+
+    await delay(10);
+  } catch (error) {
+    console.error("Error simulating Ctrl+C with robotjs:", error);
+    throw new Error("Failed to simulate Ctrl+C globally.");
+  }
 });
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 // set current clipboard
 ipcMain.handle("set-clipboard", (_, text: string) => {
