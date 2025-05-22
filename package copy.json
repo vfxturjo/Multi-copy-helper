@@ -4,25 +4,21 @@
   "description": "A software that allows you to copy text row-wise and paste to spreadsheet tables",
   "main": "dist/electron/app.js",
   "scripts": {
-    "dev": "concurrently --kill-others \"bun run dev:renderer\" \"bun run dev:electron\" \"cd electron && tsc -w\"",
-    "package": "bun run build:renderer && bun run build:electron && electron-rebuild -f -p webpack && electron-builder",
+    "dev": "concurrently --kill-others \"npm run dev:renderer\" \"npm run dev:electron\" \"cd electron && tsc -w\"",
+    "package": "npm run build:renderer && npm run build:electron && electron-builder",
     "build:electron": "cd electron && tsc",
-    "build:renderer": "cd renderer && bun run build",
-    "dev:renderer": "cd renderer && bun run dev",
-    "dev:electron": "bun run build:electron && electron .",
+    "build:renderer": "cd renderer && npm run build",
+    "dev:renderer": "cd renderer && npm run dev",
+    "dev:electron": "npm run build:electron && electron .",
     "format": "prettier --write ."
   },
   "build": {
     "appId": "vfxTurjo.smart-copy",
     "productName": "SmartCopy",
-    "npmRebuild": false,
     "directories": {
       "output": "build"
     },
-    "files": [
-      "dist/**/*",
-      "package.json"
-    ],
+    "files": ["dist/**/*", "package.json"],
     "win": {
       "target": "nsis",
       "icon": "./electron/assets/SmartCopy.ico"
@@ -40,13 +36,7 @@
     "type": "git",
     "url": "git+https://github.com/tlaceby/electron-svelte.git"
   },
-  "keywords": [
-    "electron",
-    "svelte",
-    "copy",
-    "clipboard",
-    "tables"
-  ],
+  "keywords": ["electron", "svelte", "copy", "clipboard", "tables"],
   "author": "vfxTurjo",
   "license": "ISC",
   "homepage": "https://github.com/vfxturjo/Multi-copy-helper",

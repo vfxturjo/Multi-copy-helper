@@ -1,12 +1,12 @@
-import SuperJSON from 'superjson';
+import SuperJSON from "superjson";
 // import { browser } from '$app/environment';
 
 // TEST IMPLEMENTATION
-import { BROWSER } from 'esm-env';
+import { BROWSER } from "esm-env";
 export const defaultWindow = BROWSER ? window : undefined;
 export type ConfigurableWindow = {
-	/** Provide a custom `window` object to use in place of the global `window` object. */
-	window?: typeof globalThis & Window;
+  /** Provide a custom `window` object to use in place of the global `window` object. */
+  window?: typeof globalThis & Window;
 };
 // TEST IMPLEMENTATION
 
@@ -75,39 +75,39 @@ export type ConfigurableWindow = {
  * @throws {Error} If the saved value in localStorage is invalid or null, the state is reset to the default value.
  */
 export function PersistedStateObjectSimple<T>(
-	localStorageID: string,
-	defaultValue: T,
-	useSuperJSON: boolean = true
+  localStorageID: string,
+  defaultValue: T,
+  useSuperJSON: boolean = true,
 ): T {
-	if (defaultWindow === undefined) {
-		// console.log('PersistedState will not work for', localStorageID);
-		return null as T;
-	}
+  if (defaultWindow === undefined) {
+    // console.log('PersistedState will not work for', localStorageID);
+    return null as T;
+  }
 
-	let v = $state(defaultValue);
-	const idExistance = window.localStorage.getItem(localStorageID);
+  let v = $state(defaultValue);
+  const idExistance = window.localStorage.getItem(localStorageID);
 
-	try {
-		v = useSuperJSON ? SuperJSON.parse(idExistance as string) : JSON.parse(idExistance as string);
-		if (v === null || v === undefined) {
-			throw new Error('value is null');
-		}
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	} catch (err) {
-		console.log('Invalid saved values for key: ' + localStorageID + '\nResetting to default\n');
-		v = defaultValue;
-	}
+  try {
+    v = useSuperJSON ? SuperJSON.parse(idExistance as string) : JSON.parse(idExistance as string);
+    if (v === null || v === undefined) {
+      throw new Error("value is null");
+    }
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  } catch (err) {
+    console.log("Invalid saved values for key: " + localStorageID + "\nResetting to default\n");
+    v = defaultValue;
+  }
 
-	$effect.root(() => {
-		$effect(() => {
-			window.localStorage.setItem(
-				localStorageID,
-				useSuperJSON ? SuperJSON.stringify(v) : JSON.stringify(v)
-			);
-		});
-	});
+  $effect.root(() => {
+    $effect(() => {
+      window.localStorage.setItem(
+        localStorageID,
+        useSuperJSON ? SuperJSON.stringify(v) : JSON.stringify(v),
+      );
+    });
+  });
 
-	return v as T;
+  return v as T;
 }
 
 //#endregion

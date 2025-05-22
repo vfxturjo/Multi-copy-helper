@@ -271,6 +271,7 @@
     }
   }
 
+  let mainWindow_width = 0;
   onMount(() => {
     const foundPreset = SavedData.v.presets.find((p) => p.name === SavedData.v.defaultPresetOnLoad);
     if (foundPreset) {
@@ -280,8 +281,14 @@
       settingsMethods.loadPreset(SavedData.v.presets[0]);
     }
 
-    // enable numkeys navigations if enabled
-    resetNumkeysNavigation();
+    // if sidebar, make it sidebar
+    ipcr.invoke("get-width").then((width) => {
+      mainWindow_width = width;
+    });
+  });
+
+  $effect(() => {
+    SavedData.v.UI_asSideBar && ipcr.send("Sidebar-window", SavedData.v.UI_asSideBar);
   });
 
   $effect(() => {
@@ -534,6 +541,22 @@
         </button>
 
         <button
+          class="btn btn-sm"
+          onclick={() => {
+            SavedData.v.UI_showTransparentPreview_mini =
+              !SavedData.v.UI_showTransparentPreview_mini;
+          }}
+        >
+          <!-- circle indicator to show always on top status -->
+          {#if SavedData.v.UI_showTransparentPreview_mini}
+            <div aria-label="status" class="status status-sm status-success"></div>
+          {:else}
+            <div aria-label="status" class="status status-sm status-neutral"></div>
+          {/if}
+          APrevOn
+        </button>
+
+        <button
           class="btn btn-sm {st.currentPreviewView === 'settings' ? 'btn-success' : ''}"
           onclick={() => {
             st.currentPreviewView =
@@ -575,7 +598,7 @@
       </div>
 
       <!-- PREVIEW THINGS -->
-      <div class="min-h-64 grow flex flex-col items-end p-2 bg-gray-800 prose">
+      <div class="min-h-64 grow flex flex-col items-end p-2 bg-gray-800 prose max-w-full">
         {#if st.currentPreviewView === "DataPreview"}
           {@render DataPreview()}
         {:else if st.currentPreviewView === "presets"}
@@ -587,8 +610,23 @@
     </div>
   {:else if st.miniPreview !== "" || st.miniPreviewEditing == true}
     {@render DataPreviewMini(st.miniPreview)}
+  {:else if SavedData.v.UI_showTransparentPreview_mini}
+    {@render showTransparentPreview_mini()}
   {/if}
 </div>
+
+{#snippet showTransparentPreview_mini()}
+  <div class="flex flex-col items-end w-full text-sm">
+    {#each st.itemsToCopy as item}
+      <p>
+        <span class="opacity-70 {SavedData.v.UI_showTransparentPreview_mini_textSize}"
+          >{st.copiedData[st.currentCopyingID]?.[item]} :</span
+        >
+        <span class="opacity-70 {SavedData.v.UI_showTransparentPreview_mini_textSize}">{item}</span>
+      </p>
+    {/each}
+  </div>
+{/snippet}
 
 {#snippet DataPreview()}
   <div class="prose w-full">
@@ -981,7 +1019,7 @@
     <div class=" w-full fieldset flex justify-between">
       <legend class="fieldset-legend">UI Scale: {SavedData.v.UIScale}</legend>
       <select bind:value={SavedData.v.UIScale} placeholder="UI Scale" class="select w-1/2">
-        <option disabled selected>UI Scale</option>
+        <option disabled>1.1 is the default UI Scale</option>
         {#each Array(11) as _, i}
           <option value={(0.9 + i * 0.1).toFixed(1)}>{(0.9 + i * 0.1).toFixed(1)}</option>
         {/each}
@@ -1000,6 +1038,29 @@
           SavedData.v.UIShortenPx = parseInt((e.target as HTMLInputElement).value);
         }}
       />
+    </div>
+
+    <div class=" w-full fieldset flex justify-between">
+      <legend class="fieldset-legend">Always On Preview text size</legend>
+      <select
+        bind:value={SavedData.v.UI_showTransparentPreview_mini_textSize}
+        placeholder="UI Scale"
+        class="select w-1/2"
+      >
+        <option disabled>text-base is default</option>
+        {#each ["text-xs", "text-sm", "text-base", "text-lg", "text-xl"] as name, i}
+          <option value={name}>{name}</option>
+        {/each}
+      </select>
+    </div>
+
+    <div class="w-full fieldset flex justify-between">
+      <legend class="fieldset-legend">Show as Sidebar Window [WIP]</legend>
+      <label class="swap btn w-1/2">
+        <input type="checkbox" bind:checked={SavedData.v.UI_asSideBar} />
+        <div class="swap-on">ON</div>
+        <div class="swap-off">OFF</div>
+      </label>
     </div>
 
     <div class="fieldset flex gap-0 pb-0 mb-0 justify-between">

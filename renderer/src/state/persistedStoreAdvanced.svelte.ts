@@ -1,37 +1,37 @@
-import { on } from 'svelte/events';
-import { createSubscriber } from 'svelte/reactivity';
+import { on } from "svelte/events";
+import { createSubscriber } from "svelte/reactivity";
 
-import { BROWSER } from 'esm-env';
-import { SuperJSON } from 'superjson';
+import { BROWSER } from "esm-env";
+import { SuperJSON } from "superjson";
 export const defaultWindow = BROWSER ? window : undefined;
 export type ConfigurableWindow = {
-	/** Provide a custom `window` object to use in place of the global `window` object. */
-	window?: typeof globalThis & Window;
+  /** Provide a custom `window` object to use in place of the global `window` object. */
+  window?: typeof globalThis & Window;
 };
 
 type Serializer<T> = {
-	serialize: (value: T) => string;
-	deserialize: (value: string) => T;
+  serialize: (value: T) => string;
+  deserialize: (value: string) => T;
 };
 
-type StorageType = 'local' | 'session';
+type StorageType = "local" | "session";
 
 function getStorage(storageType: StorageType, window: Window & typeof globalThis): Storage {
-	switch (storageType) {
-		case 'local':
-			return window.localStorage;
-		case 'session':
-			return window.sessionStorage;
-	}
+  switch (storageType) {
+    case "local":
+      return window.localStorage;
+    case "session":
+      return window.sessionStorage;
+  }
 }
 
 type PersistedStateOptions<T> = {
-	/** The storage type to use. Defaults to `local`. */
-	storage?: StorageType;
-	/** The serializer to use. Defaults to `JSON.stringify` and `JSON.parse`. */
-	serializer?: Serializer<T>;
-	/** Whether to sync with the state changes from other tabs. Defaults to `true`. */
-	syncTabs?: boolean;
+  /** The storage type to use. Defaults to `local`. */
+  storage?: StorageType;
+  /** The serializer to use. Defaults to `JSON.stringify` and `JSON.parse`. */
+  serializer?: Serializer<T>;
+  /** Whether to sync with the state changes from other tabs. Defaults to `true`. */
+  syncTabs?: boolean;
 } & ConfigurableWindow;
 
 /**
@@ -44,79 +44,79 @@ type PersistedStateOptions<T> = {
  * @modified from {@link https://runed.dev/docs/utilities/persisted-state}
  */
 export class PersistedStateObjectAdvanced<T> {
-	#current: T = $state()!;
-	#key: string;
-	#serializer: Serializer<T>;
-	#storage?: Storage;
-	#subscribe?: VoidFunction;
+  #current: T = $state()!;
+  #key: string;
+  #serializer: Serializer<T>;
+  #storage?: Storage;
+  #subscribe?: VoidFunction;
 
-	constructor(key: string, initialValue: T, options: PersistedStateOptions<T> = {}) {
-		const {
-			storage: storageType = 'local',
-			serializer = { serialize: SuperJSON.stringify, deserialize: SuperJSON.parse },
-			syncTabs = true,
-			window = defaultWindow
-		} = options;
+  constructor(key: string, initialValue: T, options: PersistedStateOptions<T> = {}) {
+    const {
+      storage: storageType = "local",
+      serializer = { serialize: SuperJSON.stringify, deserialize: SuperJSON.parse },
+      syncTabs = true,
+      window = defaultWindow,
+    } = options;
 
-		this.#current = initialValue;
-		this.#key = key;
-		this.#serializer = serializer;
+    this.#current = initialValue;
+    this.#key = key;
+    this.#serializer = serializer;
 
-		if (window === undefined) return;
+    if (window === undefined) return;
 
-		const storage = getStorage(storageType, window);
-		this.#storage = storage;
+    const storage = getStorage(storageType, window);
+    this.#storage = storage;
 
-		const existingValue = storage.getItem(key);
-		if (existingValue !== null) {
-			this.#deserialize(existingValue);
-		}
+    const existingValue = storage.getItem(key);
+    if (existingValue !== null) {
+      this.#deserialize(existingValue);
+    }
 
-		if (syncTabs && storageType === 'local') {
-			this.#subscribe = createSubscriber(() => {
-				return on(window, 'storage', this.#handleStorageEvent);
-			});
-		}
+    if (syncTabs && storageType === "local") {
+      this.#subscribe = createSubscriber(() => {
+        return on(window, "storage", this.#handleStorageEvent);
+      });
+    }
 
-		$effect.root(() => {
-			$effect(() => {
-				this.#subscribe?.();
-				this.#serialize(this.#current);
-			});
-		});
-	}
+    $effect.root(() => {
+      $effect(() => {
+        this.#subscribe?.();
+        this.#serialize(this.#current);
+      });
+    });
+  }
 
-	get v(): T {
-		return this.#current;
-	}
+  get v(): T {
+    return this.#current;
+  }
 
-	set v(newValue: T) {
-		this.#current = newValue;
-		this.#serialize(newValue);
-	}
+  set v(newValue: T) {
+    this.#current = newValue;
+    this.#serialize(newValue);
+  }
 
-	#handleStorageEvent = (event: StorageEvent): void => {
-		if (event.key !== this.#key || event.newValue === null) return;
+  #handleStorageEvent = (event: StorageEvent): void => {
+    if (event.key !== this.#key || event.newValue === null) return;
 
-		this.#deserialize(event.newValue);
-	};
+    this.#deserialize(event.newValue);
+  };
 
-	#deserialize(value: string): void {
-		try {
-			this.#current = this.#serializer.deserialize(value);
-		} catch (error) {
-			console.error(`Error when parsing "${value}" from persisted store "${this.#key}"`, error);
-		}
-	}
+  #deserialize(value: string): void {
+    try {
+      this.#current = this.#serializer.deserialize(value);
+    } catch (error) {
+      console.error(`Error when parsing "${value}" from persisted store "${this.#key}"`, error);
+    }
+  }
 
-	#serialize(value: T): void {
-		try {
-			this.#storage?.setItem(this.#key, this.#serializer.serialize(value));
-		} catch (error) {
-			console.error(
-				`Error when writing value from persisted store "${this.#key}" to ${this.#storage}`,
-				error
-			);
-		}
-	}
+  #serialize(value: T): void {
+    try {
+      this.#storage?.setItem(this.#key, this.#serializer.serialize(value));
+    } catch (error) {
+      console.error(
+        `Error when writing value from persisted store "${this.#key}" to ${this.#storage}`,
+        error,
+      );
+    }
+  }
 }

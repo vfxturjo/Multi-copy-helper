@@ -82,6 +82,14 @@ const defaultSavedData: {
   capsLockNavigationDirect: boolean;
   UIScale: number;
   autoStartNextItem: boolean;
+  UI_asSideBar: boolean;
+  UI_showTransparentPreview_mini: boolean;
+  UI_showTransparentPreview_mini_textSize:
+    | "text-xs"
+    | "text-sm"
+    | "text-base"
+    | "text-lg"
+    | "text-xl";
 } = {
   presets: [
     {
@@ -99,6 +107,9 @@ const defaultSavedData: {
   capsLockNavigationDirect: true,
   UIScale: 1.1,
   autoStartNextItem: false,
+  UI_asSideBar: true,
+  UI_showTransparentPreview_mini: true,
+  UI_showTransparentPreview_mini_textSize: "text-xs",
 };
 
 export const SavedData = new PersistedStateObjectAdvanced("settings", defaultSavedData, {

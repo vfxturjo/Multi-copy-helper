@@ -39,11 +39,20 @@ async function main() {
 
   mainWindow.once("ready-to-show", mainWindow.show);
   mainWindow.setTitle("SmartCopy");
-  mainWindow.webContents.openDevTools();
+  // mainWindow.webContents.openDevTools();
 }
 
 ipcMain.handle("get-version", (_, key: "electron" | "node") => {
   return String(process.versions[key]);
+});
+
+ipcMain.handle("get-width", () => {
+  const [width, height] = mainWindow.getSize();
+  return width;
+});
+
+ipcMain.on("Sidebar-window", (event, bool) => {
+  // implement later
 });
 
 // Conditionally ignore mouse events outside the window
