@@ -97,6 +97,13 @@
     }
   }
 
+  function miniPreviewEditingEnd() {
+    st.miniPreview = "";
+    st.miniPreviewEditing = false;
+    currentItemAnimate();
+    currentItemDone();
+  }
+
   function currentItemAnimate() {
     // do animation
     let element: NodeListOf<Element>;
@@ -166,11 +173,23 @@
 
   // get current clipboard
   function getCurrentClipboardAndSave(toCopy: string) {
-    ipcr.invoke("get-clipboard").then((value: string) => {
-      st.currentClipboard = value;
-      setClipboardValueToData(value);
-      unregisterGlobalShortcutForListeningToCancel();
-    });
+    if (SavedData.v.capsLockNavigationDirect) {
+      //  if direct getting is enabled, press ctrl C to get the info then assign
+      ipcr.invoke("press-ctrlC").then(() => {
+        ipcr.invoke("get-clipboard").then((value: string) => {
+          st.currentClipboard = value;
+          setClipboardValueToData(value);
+          unregisterGlobalShortcutForListeningToCancel();
+        });
+      });
+    } else {
+      // else jst get value and assign. same as above
+      ipcr.invoke("get-clipboard").then((value: string) => {
+        st.currentClipboard = value;
+        setClipboardValueToData(value);
+        unregisterGlobalShortcutForListeningToCancel();
+      });
+    }
   }
 
   // for each thing with class INTERACTIVE, set onmouseenter to unignore mouse events
@@ -656,18 +675,20 @@
           if (!st.copiedData[st.currentCopyingID]) st.copiedData[st.currentCopyingID] = {};
           st.copiedData[st.currentCopyingID][item] = e.currentTarget.value;
 
-          st.miniPreview = "";
-          st.miniPreviewEditing = false;
-
-          currentItemAnimate();
-          currentItemDone();
+          miniPreviewEditingEnd();
         }}
         onfocusout={() => {
-          st.miniPreview = "";
-          st.miniPreviewEditing = false;
-
-          currentItemAnimate();
-          currentItemDone();
+          miniPreviewEditingEnd();
+        }}
+        onkeyup={(e) => {
+          if (e.key == "Escape") {
+            miniPreviewEditingEnd();
+          }
+          if (e.key == "Enter") {
+            if (!st.copiedData[st.currentCopyingID]) st.copiedData[st.currentCopyingID] = {};
+            st.copiedData[st.currentCopyingID][item] = e.currentTarget.value;
+            miniPreviewEditingEnd();
+          }
         }}
       ></textarea>
       <!-- {st.copiedData[st.currentCopyingID]?.[item]} -->
@@ -1000,6 +1021,22 @@
       </div>
       <label class="swap btn w-1/2">
         <input type="checkbox" bind:checked={SavedData.v.capsLockNavigation} />
+        <div class="swap-on">ON</div>
+        <div class="swap-off">OFF</div>
+      </label>
+    </div>
+
+    <div class="fieldset flex gap-0 pb-0 mb-0 justify-between">
+      <div class="w-1/2">
+        <legend class="fieldset-legend pb-1">
+          &nbsp;&nbsp;&nbsp;&nbsp; ⬑ Apply directly <br />
+        </legend>
+        <span class="opacity-60"
+          >The buttons will trigger Ctrl+C and<br /> assign the copied value</span
+        >
+      </div>
+      <label class="swap btn w-1/2">
+        <input type="checkbox" bind:checked={SavedData.v.capsLockNavigationDirect} />
         <div class="swap-on">ON</div>
         <div class="swap-off">OFF</div>
       </label>

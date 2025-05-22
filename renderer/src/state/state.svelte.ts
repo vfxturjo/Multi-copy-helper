@@ -79,6 +79,7 @@ const defaultSavedData: {
   defaultPresetOnLoad: string;
   UIShortenPx: number;
   capsLockNavigation: boolean;
+  capsLockNavigationDirect: boolean;
   UIScale: number;
   autoStartNextItem: boolean;
 } = {
@@ -95,6 +96,7 @@ const defaultSavedData: {
   defaultPresetOnLoad: "Default",
   UIShortenPx: 0,
   capsLockNavigation: true,
+  capsLockNavigationDirect: true,
   UIScale: 1.1,
   autoStartNextItem: false,
 };

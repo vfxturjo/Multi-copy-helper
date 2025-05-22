@@ -198,6 +198,16 @@ ipcMain.handle("get-clipboard", () => {
   console.log("Unregistered global shortcut", "Escape");
   return clipboard.readText();
 });
+// get current clipboard
+ipcMain.handle("press-ctrlC", () => {
+  console.log("doing this");
+
+  mainWindow.sendInputEvent({
+    type: "keyDown",
+    keyCode: "c",
+    modifiers: ["control"],
+  });
+});
 
 // set current clipboard
 ipcMain.handle("set-clipboard", (_, text: string) => {
